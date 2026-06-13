@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="apple-itunes-app" content="app-id=1479814602">
+    <title>世界杯战报</title>
+    <link rel="stylesheet" href="styles.css?v=20260613-15">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">FIFA World Cup 2026</p>
+          <h1 data-i18n="title">世界杯战报</h1>
+        </div>
+        <div class="header-actions">
+          <label class="language-menu">
+            <span data-i18n="languageLabel">语言</span>
+            <select id="languageSelect" aria-label="语言切换" data-i18n-aria="languageSwitch">
+              <option value="zh">中文</option>
+              <option value="ja">日本語</option>
+            </select>
+          </label>
+          <div class="refresh-box">
+            <span id="syncStatus">准备同步</span>
+            <button id="refreshButton" class="icon-button" type="button" title="刷新比赛数据" aria-label="刷新比赛数据" data-i18n-title="refresh" data-i18n-aria="refresh">
+            <span aria-hidden="true">↻</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section class="controls" aria-label="日期控制" data-i18n-aria="dateControls">
+        <button id="prevDay" class="icon-button" type="button" title="前一天" aria-label="前一天" data-i18n-title="prevDay" data-i18n-aria="prevDay">
+          <span aria-hidden="true">‹</span>
+        </button>
+        <label class="date-picker">
+          <span data-i18n="matchDate">比赛日期</span>
+          <input id="matchDate" type="date">
+        </label>
+        <button id="nextDay" class="icon-button" type="button" title="后一天" aria-label="后一天" data-i18n-title="nextDay" data-i18n-aria="nextDay">
+          <span aria-hidden="true">›</span>
+        </button>
+        <button id="todayButton" class="today-button" type="button" data-i18n="today">今天</button>
+        <span id="finalBadge" class="final-badge" data-i18n="finalBadge">决赛 7月20日</span>
+      </section>
+
+      <section class="summary-strip" aria-label="比赛摘要" data-i18n-aria="summary">
+        <div>
+          <strong id="totalCount">0</strong>
+          <span data-i18n="totalMatches">场比赛</span>
+        </div>
+        <div>
+          <strong id="liveCount">0</strong>
+          <span data-i18n="liveMatches">进行中</span>
+        </div>
+        <div>
+          <strong id="doneCount">0</strong>
+          <span data-i18n="doneMatches">已结束</span>
+        </div>
+      </section>
+
+      <section id="matches" class="matches" aria-live="polite">
+        <div class="empty-state" data-i18n="loading">正在读取比赛数据...</div>
+      </section>
+
+      <section class="dashboard-section">
+        <div class="section-heading">
+          <h2 data-i18n="scorersTitle">射手榜</h2>
+          <span data-i18n="scorersHint">当届比赛与世界杯历史进球排名</span>
+        </div>
+        <div id="scorersGrid" class="scorers-grid"></div>
+      </section>
+
+      <section class="dashboard-section">
+        <div class="section-heading">
+          <h2 data-i18n="standingsTitle">小组积分</h2>
+          <span id="standingsStatus" data-i18n="loading">正在读取比赛数据...</span>
+        </div>
+        <div id="standingsGrid" class="standings-grid"></div>
+      </section>
+
+      <section class="dashboard-section">
+        <div class="section-heading">
+          <h2 data-i18n="advancementTitle">晋级情况</h2>
+          <span data-i18n="advancementHint">按 ESPN 当前积分榜与淘汰赛对阵更新</span>
+        </div>
+        <div id="advancementGrid" class="advancement-grid"></div>
+      </section>
+    </main>
+
+    <template id="matchTemplate">
+      <article class="match-card">
+        <div class="match-meta">
+          <span class="status-pill"></span>
+          <span class="time-text"></span>
+        </div>
+        <div class="teams">
+          <div class="team team-home">
+            <img alt="" loading="lazy">
+            <div>
+              <strong class="name"></strong>
+              <span class="abbr"></span>
+            </div>
+          </div>
+          <div class="score"></div>
+          <div class="team team-away">
+            <img alt="" loading="lazy">
+            <div>
+              <strong class="name"></strong>
+              <span class="abbr"></span>
+            </div>
+          </div>
+        </div>
+        <footer class="match-footer">
+          <span class="venue"></span>
+          <button class="details" type="button"></button>
+        </footer>
+      </article>
+    </template>
+
+    <div id="appPrompt" class="app-prompt" hidden>
+      <div class="app-prompt__panel" role="dialog" aria-modal="true" aria-labelledby="appPromptTitle">
+        <button id="appPromptClose" class="app-prompt__close" type="button" aria-label="关闭">×</button>
+        <h2 id="appPromptTitle">未能打开央视频</h2>
+        <p id="appPromptBody">如果手机里还没有安装央视频，可以前往应用商店下载。</p>
+        <div class="app-prompt__actions">
+          <a id="iosStoreLink" class="store-button" href="https://yangshipin.cn/" target="_blank" rel="noreferrer">App Store</a>
+          <a id="androidStoreLink" class="store-button" href="https://yangshipin.cn/" target="_blank" rel="noreferrer">Android 下载</a>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js?v=20260613-15"></script>
+  </body>
+</html>

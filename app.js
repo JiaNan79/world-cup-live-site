@@ -1,0 +1,1144 @@
+const API_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
+const SUMMARY_API = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary";
+const STANDINGS_API = "https://site.web.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?season=2026";
+const TOURNAMENT_API = `${API_BASE}?dates=20260611-20260720`;
+const CCTV_IOS_APP_URL = "cctvvideo://open";
+const CCTV_ANDROID_INTENT_URL =
+  "intent://open#Intent;scheme=cctvvideo;package=com.cctv.yangshipin.app.androidp;S.browser_fallback_url=https%3A%2F%2Fyangshipin.cn%2F;end";
+const IOS_STORE_URL = "itms-apps://itunes.apple.com/cn/app/id1479814602";
+const IOS_STORE_WEB_URL = "https://apps.apple.com/cn/app/id1479814602";
+const ANDROID_MARKET_URL = "market://search?q=%E5%A4%AE%E8%A7%86%E9%A2%91";
+const ANDROID_STORE_WEB_URL = "https://yangshipin.cn/";
+const REFRESH_MS = 60_000;
+const LANG_KEY = "worldCupLiveLanguage";
+const FINAL_DATE_LOCAL = "2026-07-20";
+
+const copy = {
+  zh: {
+    locale: "zh-CN",
+    htmlLang: "zh-CN",
+    title: "世界杯战报",
+    syncReady: "准备同步",
+    syncLoading: "同步中...",
+    syncFailed: "同步失败",
+    updatedAt: "已更新",
+    refresh: "刷新比赛数据",
+    languageSwitch: "语言切换",
+    languageLabel: "语言",
+    dateControls: "日期控制",
+    prevDay: "前一天",
+    nextDay: "后一天",
+    today: "今天",
+    matchDate: "比赛日期",
+    summary: "比赛摘要",
+    totalMatches: "场比赛",
+    liveMatches: "进行中",
+    doneMatches: "已结束",
+    loading: "正在读取比赛数据...",
+    noMatches: "这一天暂时没有查到比赛。",
+    loadError: "数据暂时读取失败。请检查网络，或稍后再刷新。",
+    livePrefix: "直播",
+    live: "直播中",
+    done: "已结束",
+    scheduled: "未开赛",
+    details: "央视频",
+    openCctv: "打开央视频",
+    appPromptClose: "关闭",
+    appPromptTitle: "未能自动打开央视频",
+    appPromptBody: "如果已安装，请用 Safari 顶部的 App 横幅打开；如果没有安装，可以前往应用商店下载。",
+    iosStore: "App Store 下载",
+    androidStore: "Android 下载",
+    crest: "队徽",
+    tba: "待定",
+    venueTba: "场馆待定",
+    scheduleTitle: "比赛日程",
+    scorersTitle: "射手榜",
+    scorersHint: "当届比赛与世界杯历史进球排名",
+    currentScorers: "当届射手榜",
+    historyScorers: "历史射手榜",
+    player: "球员",
+    goals: "进球",
+    moreScorers: "显示后续排名",
+    scorersEmpty: "暂时没有进球数据。",
+    standingsTitle: "小组积分",
+    advancementTitle: "晋级情况",
+    advancementHint: "按 ESPN 当前积分榜与淘汰赛对阵更新",
+    scheduleEmpty: "暂时没有后续赛程。",
+    standingsEmpty: "暂时没有积分榜数据。",
+    rank: "排名",
+    team: "球队",
+    played: "赛",
+    win: "胜",
+    draw: "平",
+    loss: "负",
+    goalDiff: "净",
+    points: "分",
+    qualified: "晋级区",
+    knockoutTitle: "淘汰赛对阵",
+    pending: "待定",
+    pendingMatchup: "待定 - 待定",
+    groupLabel: "小组",
+    winner: "第 1 名",
+    runnerUp: "第 2 名",
+    thirdPlace: "第三名",
+    worldCup: "世界杯",
+    groupStage: "小组赛",
+    roundOf32: "32 强赛",
+    roundOf16: "16 强赛",
+    quarterfinal: "四分之一决赛",
+    semifinal: "半决赛",
+    thirdPlaceMatch: "季军赛",
+    final: "决赛",
+    finalBadge: "决赛 7月20日",
+    moreGroups: "显示其他小组",
+    roundWinner: "第 {number} 场胜者",
+    round32Label: "32进16",
+    round16Label: "16进8",
+    quarterfinalLabel: "8进4",
+    semifinalLabel: "半决赛",
+    thirdPlaceLabel: "季军赛",
+  },
+  ja: {
+    locale: "ja-JP",
+    htmlLang: "ja",
+    title: "ワールドカップ戦報",
+    syncReady: "同期準備中",
+    syncLoading: "同期中...",
+    syncFailed: "同期失敗",
+    updatedAt: "更新済み",
+    refresh: "試合データを更新",
+    languageSwitch: "言語切り替え",
+    languageLabel: "言語",
+    dateControls: "日付操作",
+    prevDay: "前日",
+    nextDay: "翌日",
+    today: "今日",
+    matchDate: "試合日",
+    summary: "試合サマリー",
+    totalMatches: "試合",
+    liveMatches: "ライブ",
+    doneMatches: "終了",
+    loading: "試合データを読み込み中...",
+    noMatches: "この日の試合は見つかりませんでした。",
+    loadError: "データを読み込めませんでした。ネットワークを確認するか、後でもう一度お試しください。",
+    livePrefix: "ライブ",
+    live: "ライブ中",
+    done: "終了",
+    scheduled: "開始前",
+    details: "央视频",
+    openCctv: "央视频を開く",
+    appPromptClose: "閉じる",
+    appPromptTitle: "央视频を自動で開けませんでした",
+    appPromptBody: "インストール済みの場合は、Safari上部のAppバナーから開いてください。未インストールの場合はストアから入手できます。",
+    iosStore: "App Storeで入手",
+    androidStore: "Androidで入手",
+    crest: "エンブレム",
+    tba: "未定",
+    venueTba: "会場未定",
+    scheduleTitle: "試合日程",
+    scorersTitle: "得点ランキング",
+    scorersHint: "今大会とワールドカップ歴代の得点ランキング",
+    currentScorers: "今大会得点ランキング",
+    historyScorers: "歴代得点ランキング",
+    player: "選手",
+    goals: "得点",
+    moreScorers: "6位以下を表示",
+    scorersEmpty: "得点データはまだありません。",
+    standingsTitle: "グループ順位",
+    advancementTitle: "勝ち上がり",
+    advancementHint: "ESPN の現在順位と決勝トーナメント表に基づいて更新",
+    scheduleEmpty: "今後の試合日程はまだありません。",
+    standingsEmpty: "順位表データはまだありません。",
+    rank: "順位",
+    team: "チーム",
+    played: "試合",
+    win: "勝",
+    draw: "分",
+    loss: "敗",
+    goalDiff: "差",
+    points: "点",
+    qualified: "突破圏",
+    knockoutTitle: "決勝トーナメント",
+    pending: "未定",
+    pendingMatchup: "未定 - 未定",
+    groupLabel: "グループ",
+    winner: "1位",
+    runnerUp: "2位",
+    thirdPlace: "3位",
+    worldCup: "FIFAワールドカップ",
+    groupStage: "グループステージ",
+    roundOf32: "ラウンド32",
+    roundOf16: "ラウンド16",
+    quarterfinal: "準々決勝",
+    semifinal: "準決勝",
+    thirdPlaceMatch: "3位決定戦",
+    final: "決勝",
+    finalBadge: "決勝 7月20日",
+    moreGroups: "ほかのグループを表示",
+    roundWinner: "第{number}試合の勝者",
+    round32Label: "ラウンド32",
+    round16Label: "ラウンド16",
+    quarterfinalLabel: "準々決勝",
+    semifinalLabel: "準決勝",
+    thirdPlaceLabel: "3位決定戦",
+  },
+};
+
+const teamNames = {
+  ALG: { zh: "阿尔及利亚", ja: "アルジェリア" },
+  ARG: { zh: "阿根廷", ja: "アルゼンチン" },
+  AUS: { zh: "澳大利亚", ja: "オーストラリア" },
+  AUT: { zh: "奥地利", ja: "オーストリア" },
+  BEL: { zh: "比利时", ja: "ベルギー" },
+  BIH: { zh: "波黑", ja: "ボスニア・ヘルツェゴビナ" },
+  BRA: { zh: "巴西", ja: "ブラジル" },
+  CAN: { zh: "加拿大", ja: "カナダ" },
+  CHI: { zh: "智利", ja: "チリ" },
+  CIV: { zh: "科特迪瓦", ja: "コートジボワール" },
+  CMR: { zh: "喀麦隆", ja: "カメルーン" },
+  COD: { zh: "刚果民主共和国", ja: "コンゴ民主共和国" },
+  COL: { zh: "哥伦比亚", ja: "コロンビア" },
+  CPV: { zh: "佛得角", ja: "カーボベルデ" },
+  CRC: { zh: "哥斯达黎加", ja: "コスタリカ" },
+  CRO: { zh: "克罗地亚", ja: "クロアチア" },
+  CUW: { zh: "库拉索", ja: "キュラソー" },
+  CZE: { zh: "捷克", ja: "チェコ" },
+  DEN: { zh: "丹麦", ja: "デンマーク" },
+  ECU: { zh: "厄瓜多尔", ja: "エクアドル" },
+  EGY: { zh: "埃及", ja: "エジプト" },
+  ENG: { zh: "英格兰", ja: "イングランド" },
+  ESP: { zh: "西班牙", ja: "スペイン" },
+  FRA: { zh: "法国", ja: "フランス" },
+  GER: { zh: "德国", ja: "ドイツ" },
+  GHA: { zh: "加纳", ja: "ガーナ" },
+  HAI: { zh: "海地", ja: "ハイチ" },
+  HUN: { zh: "匈牙利", ja: "ハンガリー" },
+  IRN: { zh: "伊朗", ja: "イラン" },
+  IRQ: { zh: "伊拉克", ja: "イラク" },
+  ITA: { zh: "意大利", ja: "イタリア" },
+  JOR: { zh: "约旦", ja: "ヨルダン" },
+  JPN: { zh: "日本", ja: "日本" },
+  KOR: { zh: "韩国", ja: "韓国" },
+  MAR: { zh: "摩洛哥", ja: "モロッコ" },
+  MEX: { zh: "墨西哥", ja: "メキシコ" },
+  NED: { zh: "荷兰", ja: "オランダ" },
+  NGA: { zh: "尼日利亚", ja: "ナイジェリア" },
+  NOR: { zh: "挪威", ja: "ノルウェー" },
+  NZL: { zh: "新西兰", ja: "ニュージーランド" },
+  PAN: { zh: "巴拿马", ja: "パナマ" },
+  PAR: { zh: "巴拉圭", ja: "パラグアイ" },
+  POL: { zh: "波兰", ja: "ポーランド" },
+  POR: { zh: "葡萄牙", ja: "ポルトガル" },
+  QAT: { zh: "卡塔尔", ja: "カタール" },
+  RSA: { zh: "南非", ja: "南アフリカ" },
+  KSA: { zh: "沙特阿拉伯", ja: "サウジアラビア" },
+  SAU: { zh: "沙特阿拉伯", ja: "サウジアラビア" },
+  SCO: { zh: "苏格兰", ja: "スコットランド" },
+  SEN: { zh: "塞内加尔", ja: "セネガル" },
+  SRB: { zh: "塞尔维亚", ja: "セルビア" },
+  SUI: { zh: "瑞士", ja: "スイス" },
+  SWE: { zh: "瑞典", ja: "スウェーデン" },
+  TUN: { zh: "突尼斯", ja: "チュニジア" },
+  TUR: { zh: "土耳其", ja: "トルコ" },
+  UKR: { zh: "乌克兰", ja: "ウクライナ" },
+  URU: { zh: "乌拉圭", ja: "ウルグアイ" },
+  USA: { zh: "美国", ja: "アメリカ" },
+  UZB: { zh: "乌兹别克斯坦", ja: "ウズベキスタン" },
+  WAL: { zh: "威尔士", ja: "ウェールズ" },
+  ZAF: { zh: "南非", ja: "南アフリカ" },
+};
+
+const venueNames = {
+  "AT&T Stadium": { zh: "AT&T 体育场", ja: "AT&Tスタジアム" },
+  "BC Place": { zh: "BC Place 体育场", ja: "BCプレイス" },
+  "BMO Field": { zh: "BMO 球场", ja: "BMOフィールド" },
+  "Estadio Akron": { zh: "阿克伦体育场", ja: "エスタディオ・アクロン" },
+  "Estadio BBVA": { zh: "BBVA 体育场", ja: "エスタディオBBVA" },
+  "Estadio Banorte": { zh: "Banorte 体育场", ja: "エスタディオ・バノルテ" },
+  "GEHA Field at Arrowhead Stadium": { zh: "箭头体育场 GEHA 球场", ja: "GEHAフィールド・アット・アローヘッド・スタジアム" },
+  "Gillette Stadium": { zh: "吉列体育场", ja: "ジレット・スタジアム" },
+  "Hard Rock Stadium": { zh: "硬石体育场", ja: "ハードロック・スタジアム" },
+  "Levi's Stadium": { zh: "李维斯体育场", ja: "リーバイス・スタジアム" },
+  "Lincoln Financial Field": { zh: "林肯金融球场", ja: "リンカーン・フィナンシャル・フィールド" },
+  "Lumen Field": { zh: "流明球场", ja: "ルーメン・フィールド" },
+  "Mercedes-Benz Stadium": { zh: "梅赛德斯-奔驰体育场", ja: "メルセデス・ベンツ・スタジアム" },
+  "MetLife Stadium": { zh: "大都会人寿体育场", ja: "メットライフ・スタジアム" },
+  "NRG Stadium": { zh: "NRG 体育场", ja: "NRGスタジアム" },
+  "SoFi Stadium": { zh: "SoFi 体育场", ja: "SoFiスタジアム" },
+};
+
+const playerNames = {
+  "Folarin Balogun": { zh: "弗拉林·巴洛贡", ja: "フォラリン・バログン" },
+  "Cyle Larin": { zh: "赛尔·拉林", ja: "サイル・ラリン" },
+  "Damián Bobadilla": { zh: "达米安·博巴迪利亚", ja: "ダミアン・ボバディージャ" },
+  "Giovanni Reyna": { zh: "吉奥瓦尼·雷纳", ja: "ジョバンニ・レイナ" },
+  "Hwang In-Beom": { zh: "黄仁范", ja: "ファン・インボム" },
+  "Jovo Lukic": { zh: "约沃·卢基奇", ja: "ヨヴォ・ルキッチ" },
+  "Julián Quiñones": { zh: "胡利安·基尼奥内斯", ja: "フリアン・キニョネス" },
+  "Ladislav Krejcí": { zh: "拉迪斯拉夫·克雷伊奇", ja: "ラディスラフ・クレイチー" },
+  "Maurício": { zh: "毛里西奥", ja: "マウリシオ" },
+  "Oh Hyeon-Gyu": { zh: "吴贤揆", ja: "オ・ヒョンギュ" },
+  "Raúl Jiménez": { zh: "劳尔·希门尼斯", ja: "ラウール・ヒメネス" },
+  "Miroslav Klose": { zh: "米洛斯拉夫·克洛泽", ja: "ミロスラフ・クローゼ" },
+  Ronaldo: { zh: "罗纳尔多", ja: "ロナウド" },
+  "Gerd Muller": { zh: "盖德·穆勒", ja: "ゲルト・ミュラー" },
+  "Lionel Messi": { zh: "莱昂内尔·梅西", ja: "リオネル・メッシ" },
+  "Just Fontaine": { zh: "朱斯特·方丹", ja: "ジュスト・フォンテーヌ" },
+  "Kylian Mbappe": { zh: "基利安·姆巴佩", ja: "キリアン・エムバペ" },
+  Pele: { zh: "贝利", ja: "ペレ" },
+  "Jurgen Klinsmann": { zh: "尤尔根·克林斯曼", ja: "ユルゲン・クリンスマン" },
+  "Sandor Kocsis": { zh: "桑多尔·柯奇士", ja: "シャーンドル・コチシュ" },
+  "Thomas Muller": { zh: "托马斯·穆勒", ja: "トーマス・ミュラー" },
+};
+
+const playerTeams = {
+  "Folarin Balogun": "USA",
+  "Cyle Larin": "CAN",
+  "Damián Bobadilla": "PAR",
+  "Giovanni Reyna": "USA",
+  "Hwang In-Beom": "KOR",
+  "Jovo Lukic": "BIH",
+  "Julián Quiñones": "MEX",
+  "Ladislav Krejcí": "CZE",
+  "Maurício": "BRA",
+  "Oh Hyeon-Gyu": "KOR",
+  "Raúl Jiménez": "MEX",
+};
+
+const teamFlags = {
+  ALG: "🇩🇿", ARG: "🇦🇷", AUS: "🇦🇺", AUT: "🇦🇹", BEL: "🇧🇪", BIH: "🇧🇦", BRA: "🇧🇷",
+  CAN: "🇨🇦", CHI: "🇨🇱", CIV: "🇨🇮", CMR: "🇨🇲", COD: "🇨🇩", COL: "🇨🇴", CPV: "🇨🇻",
+  CRC: "🇨🇷", CRO: "🇭🇷", CUW: "🇨🇼", CZE: "🇨🇿", DEN: "🇩🇰", ECU: "🇪🇨", EGY: "🇪🇬",
+  ENG: "🏴", ESP: "🇪🇸", FRA: "🇫🇷", GER: "🇩🇪", GHA: "🇬🇭", HAI: "🇭🇹", HUN: "🇭🇺",
+  IRN: "🇮🇷", IRQ: "🇮🇶", ITA: "🇮🇹", JOR: "🇯🇴", JPN: "🇯🇵", KOR: "🇰🇷", MAR: "🇲🇦",
+  MEX: "🇲🇽", NED: "🇳🇱", NGA: "🇳🇬", NOR: "🇳🇴", NZL: "🇳🇿", PAN: "🇵🇦", PAR: "🇵🇾",
+  POL: "🇵🇱", POR: "🇵🇹", QAT: "🇶🇦", RSA: "🇿🇦", KSA: "🇸🇦", SAU: "🇸🇦", SCO: "🏴",
+  SEN: "🇸🇳", SRB: "🇷🇸", SUI: "🇨🇭", SWE: "🇸🇪", TUN: "🇹🇳", TUR: "🇹🇷", UKR: "🇺🇦",
+  URU: "🇺🇾", USA: "🇺🇸", UZB: "🇺🇿", WAL: "🏴", ZAF: "🇿🇦",
+};
+
+const historicalScorers = [
+  { player: "Miroslav Klose", team: "GER", goals: 16 },
+  { player: "Ronaldo", team: "BRA", goals: 15 },
+  { player: "Gerd Muller", team: "GER", goals: 14 },
+  { player: "Lionel Messi", team: "ARG", goals: 13 },
+  { player: "Just Fontaine", team: "FRA", goals: 13 },
+  { player: "Kylian Mbappe", team: "FRA", goals: 12 },
+  { player: "Pele", team: "BRA", goals: 12 },
+  { player: "Jurgen Klinsmann", team: "GER", goals: 11 },
+  { player: "Sandor Kocsis", team: "HUN", goals: 11 },
+  { player: "Thomas Muller", team: "GER", goals: 10 },
+];
+
+const els = {
+  date: document.querySelector("#matchDate"),
+  prev: document.querySelector("#prevDay"),
+  next: document.querySelector("#nextDay"),
+  refresh: document.querySelector("#refreshButton"),
+  today: document.querySelector("#todayButton"),
+  finalBadge: document.querySelector("#finalBadge"),
+  syncStatus: document.querySelector("#syncStatus"),
+  matches: document.querySelector("#matches"),
+  scheduleList: document.querySelector("#scheduleList"),
+  scheduleStatus: document.querySelector("#scheduleStatus"),
+  scorersGrid: document.querySelector("#scorersGrid"),
+  standingsGrid: document.querySelector("#standingsGrid"),
+  standingsStatus: document.querySelector("#standingsStatus"),
+  advancementGrid: document.querySelector("#advancementGrid"),
+  template: document.querySelector("#matchTemplate"),
+  totalCount: document.querySelector("#totalCount"),
+  liveCount: document.querySelector("#liveCount"),
+  doneCount: document.querySelector("#doneCount"),
+  languageSelect: document.querySelector("#languageSelect"),
+  appPrompt: document.querySelector("#appPrompt"),
+  appPromptTitle: document.querySelector("#appPromptTitle"),
+  appPromptBody: document.querySelector("#appPromptBody"),
+  appPromptClose: document.querySelector("#appPromptClose"),
+  iosStoreLink: document.querySelector("#iosStoreLink"),
+  androidStoreLink: document.querySelector("#androidStoreLink"),
+};
+
+let refreshTimer = null;
+let currentLang = localStorage.getItem(LANG_KEY) || "zh";
+let currentMatches = [];
+let tournamentEvents = [];
+let scorerEvents = [];
+let standingsGroups = [];
+let syncState = "ready";
+let lastUpdatedAt = null;
+
+if (!copy[currentLang]) currentLang = "zh";
+
+function t(key) {
+  return copy[currentLang][key] || copy.zh[key] || key;
+}
+
+function localDateValue(date = new Date()) {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function espnDateValue(value) {
+  return value.replaceAll("-", "");
+}
+
+function espnDateRangeForLocalDate(value) {
+  return `${espnDateValue(shiftDate(value, -1))}-${espnDateValue(shiftDate(value, 1))}`;
+}
+
+function shiftDate(value, days) {
+  const date = new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return localDateValue(date);
+}
+
+function clampTournamentDate(value) {
+  return value > FINAL_DATE_LOCAL ? FINAL_DATE_LOCAL : value;
+}
+
+function formatTime(value) {
+  return new Intl.DateTimeFormat(t("locale"), {
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
+}
+
+function formatScheduleTime(value) {
+  return new Intl.DateTimeFormat(t("locale"), {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatDateOnly(value) {
+  return localDateValue(new Date(value));
+}
+
+function getTeams(competition) {
+  const teams = competition.competitors || [];
+  const home = teams.find((item) => item.homeAway === "home") || teams[0];
+  const away = teams.find((item) => item.homeAway === "away") || teams[1];
+  return { home, away };
+}
+
+function statusLabel(status) {
+  const type = status?.type || {};
+  if (type.state === "in") return status.displayClock ? `${t("livePrefix")} ${status.displayClock}` : t("live");
+  if (type.completed) return t("done");
+  return t("scheduled");
+}
+
+function statusClass(status) {
+  const type = status?.type || {};
+  if (type.state === "in") return "live";
+  if (type.completed) return "done";
+  return "";
+}
+
+function normalizeEvent(event) {
+  const competition = event.competitions?.[0] || {};
+  const { home, away } = getTeams(competition);
+  const status = competition.status || event.status || {};
+  const link = event.links?.find((item) => item.rel?.includes("summary"))?.href || "https://www.espn.com/soccer/";
+
+  return {
+    id: event.id,
+    date: event.date,
+    note: competition.altGameNote || event.season?.slug || "FIFA World Cup",
+    status,
+    venue: competition.venue?.fullName || event.venue?.displayName || t("venueTba"),
+    link,
+    home,
+    away,
+  };
+}
+
+function statValue(entry, name) {
+  const stat = entry.stats?.find((item) => item.name === name || item.type === name);
+  return stat?.displayValue || "0";
+}
+
+function groupLabel(name = "") {
+  const letter = name.match(/Group\s+([A-Z])/i)?.[1] || name;
+  return `${t("groupLabel")} ${letter}`;
+}
+
+function localizedTeamFromText(text = "") {
+  return text
+    .replace(/Round of\s+(\d+)\s+(\d+)\s+Winner/gi, (_, round, number) => `${roundLabelFromNumber(round)}${t("roundWinner").replace("{number}", number)}`)
+    .replace(/Third Place\s+Group\s+([A-Z/]+)/gi, (_, groups) => `${groups.split("/").map((group) => groupLabel(`Group ${group}`)).join("/")} ${t("thirdPlace")}`)
+    .replace(/Group\s+([A-Z])\s+Winner/gi, (_, group) => `${groupLabel(`Group ${group}`)} ${t("winner")}`)
+    .replace(/Group\s+([A-Z])\s+2nd Place/gi, (_, group) => `${groupLabel(`Group ${group}`)} ${t("runnerUp")}`)
+    .replace(/Third Place/gi, t("thirdPlace"));
+}
+
+function roundLabelFromNumber(round) {
+  if (round === "32") return t("roundOf32");
+  if (round === "16") return t("roundOf16");
+  return `Round of ${round}`;
+}
+
+function localizedCompetitionNote(note = "") {
+  const group = note.match(/Group\s+([A-Z])/i)?.[1];
+  if (group) return `${t("worldCup")} · ${groupLabel(`Group ${group}`)}`;
+  if (/Round of 32/i.test(note)) return `${t("worldCup")} · ${t("roundOf32")}`;
+  if (/Rd of 16|Round of 16/i.test(note)) return `${t("worldCup")} · ${t("roundOf16")}`;
+  if (/Quarterfinal/i.test(note)) return `${t("worldCup")} · ${t("quarterfinal")}`;
+  if (/Semifinal/i.test(note)) return `${t("worldCup")} · ${t("semifinal")}`;
+  if (/3rd-Place|Third-Place|Third Place/i.test(note)) return `${t("worldCup")} · ${t("thirdPlaceMatch")}`;
+  if (/Final/i.test(note)) return `${t("worldCup")} · ${t("final")}`;
+  if (/FIFA World Cup/i.test(note)) return t("worldCup");
+  return note;
+}
+
+function localizedVenue(name = "") {
+  if (!name) return t("venueTba");
+  return venueNames[name]?.[currentLang] || name;
+}
+
+function eventTeamsText(event) {
+  const competitors = event.competitions?.[0]?.competitors || [];
+  return competitors
+    .map((competitor) => localizedTeamWithFlag(competitor.team) || localizedTeamFromText(competitor.team?.displayName))
+    .join(" - ");
+}
+
+function knockoutTeamsText(event) {
+  if (!isGroupStageComplete()) {
+    return localizedKnockoutPlaceholder(event);
+  }
+  return eventTeamsText(event);
+}
+
+function isGroupStageComplete() {
+  const groupEvents = tournamentEvents.filter((event) => new Date(event.date) < new Date("2026-06-28T00:00:00Z"));
+  return groupEvents.length > 0 && groupEvents.every((event) => {
+    const status = event.competitions?.[0]?.status || event.status || {};
+    return status.type?.completed;
+  });
+}
+
+function localizedKnockoutPlaceholder(event) {
+  const competition = event.competitions?.[0] || {};
+  const note = competition.altGameNote || event.name || "";
+  const localized = localizedTeamFromText(note);
+  return localized && localized !== note ? localized : t("pendingMatchup");
+}
+
+function knockoutRoundLabel(value) {
+  const date = formatDateOnly(value);
+  if (date >= "2026-06-28" && date <= "2026-07-03") return t("round32Label");
+  if (date >= "2026-07-04" && date <= "2026-07-07") return t("round16Label");
+  if (date >= "2026-07-09" && date <= "2026-07-11") return t("quarterfinalLabel");
+  if (date >= "2026-07-14" && date <= "2026-07-15") return t("semifinalLabel");
+  if (date === "2026-07-18" || date === "2026-07-19") return t("thirdPlaceLabel");
+  if (date === FINAL_DATE_LOCAL || date === "2026-07-19") return t("final");
+  return "";
+}
+
+function setCounts(matches) {
+  els.totalCount.textContent = matches.length;
+  els.liveCount.textContent = matches.filter((match) => match.status?.type?.state === "in").length;
+  els.doneCount.textContent = matches.filter((match) => match.status?.type?.completed).length;
+}
+
+function renderTeam(root, competitor) {
+  const team = competitor?.team || {};
+  const name = localizedTeamName(team);
+  root.querySelector("img").src = team.logo || "";
+  root.querySelector("img").alt = name ? `${name} ${t("crest")}` : "";
+  root.querySelector(".name").textContent = name || t("tba");
+  root.querySelector(".abbr").textContent = "";
+}
+
+function localizedTeamName(team) {
+  const abbr = team?.abbreviation;
+  if (!abbr) return localizedTeamFromText(team?.displayName || "");
+  return teamNames[abbr]?.[currentLang] || localizedTeamFromText(team.displayName || abbr);
+}
+
+function localizedTeamWithFlag(team) {
+  const name = localizedTeamName(team);
+  const abbr = typeof team === "string" ? team : team?.abbreviation;
+  const flag = teamFlags[abbr] || "";
+  return `${flag ? `${flag} ` : ""}${name}`;
+}
+
+function renderStaticText() {
+  document.documentElement.lang = t("htmlLang");
+  document.title = t("title");
+
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    node.textContent = t(node.dataset.i18n);
+  });
+
+  document.querySelectorAll("[data-i18n-title]").forEach((node) => {
+    node.title = t(node.dataset.i18nTitle);
+  });
+
+  document.querySelectorAll("[data-i18n-aria]").forEach((node) => {
+    node.setAttribute("aria-label", t(node.dataset.i18nAria));
+  });
+
+  els.languageSelect.value = currentLang;
+  els.date.max = FINAL_DATE_LOCAL;
+  els.finalBadge.textContent = t("finalBadge");
+
+  renderSyncStatus();
+  renderAppPromptText();
+  renderSchedule();
+  renderScorers();
+  renderStandings();
+  renderAdvancement();
+}
+
+function renderAppPromptText() {
+  els.appPromptTitle.textContent = t("appPromptTitle");
+  els.appPromptBody.textContent = t("appPromptBody");
+  els.appPromptClose.setAttribute("aria-label", t("appPromptClose"));
+  els.iosStoreLink.textContent = t("iosStore");
+  els.androidStoreLink.textContent = t("androidStore");
+  els.iosStoreLink.href = isIOS() ? IOS_STORE_URL : IOS_STORE_WEB_URL;
+  els.androidStoreLink.href = isAndroid() ? ANDROID_MARKET_URL : ANDROID_STORE_WEB_URL;
+}
+
+function renderSyncStatus() {
+  if (syncState === "loading") {
+    els.syncStatus.textContent = t("syncLoading");
+    return;
+  }
+
+  if (syncState === "failed") {
+    els.syncStatus.textContent = t("syncFailed");
+    return;
+  }
+
+  if (syncState === "updated" && lastUpdatedAt) {
+    els.syncStatus.textContent = `${t("updatedAt")} ${new Intl.DateTimeFormat(t("locale"), {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(lastUpdatedAt)}`;
+    return;
+  }
+
+  els.syncStatus.textContent = t("syncReady");
+}
+
+function renderMatches(matches) {
+  els.matches.textContent = "";
+  setCounts(matches);
+
+  if (!matches.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = t("noMatches");
+    els.matches.append(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  matches.forEach((match) => {
+    const node = els.template.content.firstElementChild.cloneNode(true);
+    const status = node.querySelector(".status-pill");
+    const homeScore = match.home?.score ?? "0";
+    const awayScore = match.away?.score ?? "0";
+    const stateClass = statusClass(match.status);
+
+    status.textContent = statusLabel(match.status);
+    if (stateClass) status.classList.add(stateClass);
+    node.querySelector(".time-text").textContent = `${formatTime(match.date)} · ${localizedCompetitionNote(match.note)}`;
+    node.querySelector(".score").textContent = `${homeScore} - ${awayScore}`;
+    node.querySelector(".venue").textContent = localizedVenue(match.venue);
+    const cctvButton = node.querySelector(".details");
+    cctvButton.textContent = t("details");
+    cctvButton.setAttribute("aria-label", t("openCctv"));
+    cctvButton.addEventListener("click", openCctvApp);
+    cctvButton.hidden = currentLang === "ja";
+
+    renderTeam(node.querySelector(".team-home"), match.home);
+    renderTeam(node.querySelector(".team-away"), match.away);
+    fragment.append(node);
+  });
+
+  els.matches.append(fragment);
+}
+
+function isIOS() {
+  return /iPad|iPhone|iPod/i.test(navigator.userAgent);
+}
+
+function isAndroid() {
+  return /Android/i.test(navigator.userAgent);
+}
+
+function isMobileDevice() {
+  return isIOS() || isAndroid();
+}
+
+function openCctvApp() {
+  if (!isMobileDevice()) {
+    showAppPrompt();
+    return;
+  }
+
+  hideAppPrompt();
+  let appOpened = false;
+  const markOpened = () => {
+    appOpened = true;
+  };
+
+  document.addEventListener("visibilitychange", markOpened, { once: true });
+  window.addEventListener("pagehide", markOpened, { once: true });
+
+  window.location.href = isAndroid() ? CCTV_ANDROID_INTENT_URL : CCTV_IOS_APP_URL;
+
+  window.setTimeout(() => {
+    document.removeEventListener("visibilitychange", markOpened);
+    window.removeEventListener("pagehide", markOpened);
+    if (!appOpened && !document.hidden) showAppPrompt();
+  }, 2200);
+}
+
+function showAppPrompt() {
+  renderAppPromptText();
+  els.appPrompt.hidden = false;
+}
+
+function hideAppPrompt() {
+  els.appPrompt.hidden = true;
+}
+
+function renderSchedule() {
+  if (!els.scheduleList) return;
+  els.scheduleList.textContent = "";
+  const now = new Date();
+  const upcoming = tournamentEvents
+    .filter((event) => new Date(event.date) >= new Date(now.getTime() - 3 * 60 * 60 * 1000))
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .slice(0, 12);
+
+  els.scheduleStatus.textContent = tournamentEvents.length ? `${upcoming.length}/${tournamentEvents.length}` : t("loading");
+
+  if (!upcoming.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = t("scheduleEmpty");
+    els.scheduleList.append(empty);
+    return;
+  }
+
+  upcoming.forEach((event) => {
+    const item = document.createElement("div");
+    item.className = "schedule-item";
+
+    const date = document.createElement("div");
+    date.className = "schedule-date";
+    date.textContent = formatScheduleTime(event.date);
+
+    const teams = document.createElement("div");
+    teams.className = "schedule-teams";
+    teams.textContent = eventTeamsText(event);
+
+    const note = document.createElement("div");
+    note.className = "schedule-note";
+    note.textContent = localizedCompetitionNote(event.competitions?.[0]?.altGameNote || "FIFA World Cup");
+
+    item.append(date, teams, note);
+    els.scheduleList.append(item);
+  });
+}
+
+function renderScorers() {
+  if (!els.scorersGrid) return;
+  els.scorersGrid.textContent = "";
+  els.scorersGrid.append(
+    createScorersCard(t("currentScorers"), collectTournamentScorers().slice(0, 10)),
+    createScorersCard(t("historyScorers"), historicalScorers),
+  );
+}
+
+function createScorersCard(title, scorers) {
+  const card = document.createElement("article");
+  card.className = "scorers-card";
+
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+
+  if (!scorers.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state compact";
+    empty.textContent = t("scorersEmpty");
+    card.append(heading, empty);
+    return card;
+  }
+
+  const table = document.createElement("table");
+  table.className = "scorers-table";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>${t("rank")}</th>
+        <th>${t("player")}</th>
+        <th>${t("team")}</th>
+        <th>${t("goals")}</th>
+      </tr>
+    </thead>
+  `;
+
+  const body = document.createElement("tbody");
+  appendScorerRows(body, scorers.slice(0, 5), 0);
+
+  table.append(body);
+  card.append(heading, table);
+
+  if (scorers.length > 5) {
+    const details = document.createElement("details");
+    details.className = "scorers-more";
+    const summary = document.createElement("summary");
+    summary.textContent = t("moreScorers");
+
+    const moreTable = document.createElement("table");
+    moreTable.className = "scorers-table scorers-table--more";
+    const moreBody = document.createElement("tbody");
+    appendScorerRows(moreBody, scorers.slice(5), 5);
+    moreTable.append(moreBody);
+
+    details.append(summary, moreTable);
+    card.append(details);
+  }
+
+  return card;
+}
+
+function appendScorerRows(body, scorers, startIndex) {
+  scorers.forEach((scorer, index) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${startIndex + index + 1}</td>
+      <td><strong>${localizedPlayerName(scorer.player)}</strong></td>
+      <td>${localizedScorerTeam(scorer.team)}</td>
+      <td><strong>${scorer.goals}</strong></td>
+    `;
+    body.append(row);
+  });
+}
+
+function collectTournamentScorers() {
+  const fromSummaries = collectScorersFromEvents(scorerEvents);
+  if (fromSummaries.length) return fromSummaries;
+  return collectScorersFromEvents(tournamentEvents);
+}
+
+function collectScorersFromEvents(events) {
+  const scorerMap = new Map();
+
+  events.forEach((event) => {
+    const details = eventGoalDetails(event);
+    details.filter(isGoalDetail).forEach((detail) => {
+      const scorer = detailScorer(detail);
+      if (!scorer.player) return;
+      const key = `${scorer.player}|${scorer.team || ""}`;
+      const current = scorerMap.get(key) || { player: scorer.player, team: scorer.team, goals: 0 };
+      current.goals += Number(detail.scoreValue || 1);
+      scorerMap.set(key, current);
+    });
+  });
+
+  return [...scorerMap.values()].sort((a, b) => b.goals - a.goals || a.player.localeCompare(b.player));
+}
+
+function eventGoalDetails(event) {
+  const competition = event.competitions?.[0] || event.header?.competitions?.[0] || {};
+  return [
+    ...(event.details || []),
+    ...(event.scoringPlays || []),
+    ...(event.plays || []),
+    ...(competition.details || []),
+    ...(competition.scoringPlays || []),
+    ...(competition.plays || []),
+  ];
+}
+
+function isGoalDetail(detail) {
+  const text = [
+    detail.type?.text,
+    detail.type?.description,
+    detail.type?.abbreviation,
+    detail.displayName,
+    detail.shortDisplayName,
+    detail.text,
+  ].filter(Boolean).join(" ");
+  return detail.scoreValue > 0 || /\b(goal|penalty)\b/i.test(text) || detail.type?.abbreviation === "G";
+}
+
+function detailScorer(detail) {
+  const participant = detail.participants?.find((item) => item.athlete || item.athleteId) || detail.participants?.[0] || {};
+  const athlete = detail.athlete || detail.athletes?.[0] || detail.athletesInvolved?.[0] || participant.athlete || {};
+  const team = detail.team || participant.team || {};
+  const player = athlete.displayName || athlete.shortName || athlete.fullName || detail.athleteName || detail.scorer || "";
+  return {
+    player,
+    team: team.abbreviation || team.shortDisplayName || team.displayName || playerTeams[player] || "",
+  };
+}
+
+function localizedPlayerName(name) {
+  return playerNames[name]?.[currentLang] || name;
+}
+
+function localizedScorerTeam(team) {
+  if (!team) return t("tba");
+  if (typeof team === "string" && teamNames[team]) return `${teamFlags[team] || ""} ${teamNames[team][currentLang]}`.trim();
+  if (typeof team === "string") return localizedTeamFromText(team);
+  return localizedTeamWithFlag(team);
+}
+
+function renderStandings() {
+  if (!els.standingsGrid) return;
+  els.standingsGrid.textContent = "";
+  els.standingsStatus.textContent = standingsGroups.length ? `${standingsGroups.length}` : t("loading");
+
+  if (!standingsGroups.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = t("standingsEmpty");
+    els.standingsGrid.append(empty);
+    return;
+  }
+
+  const cards = standingsGroups.map((group) => createStandingsCard(group));
+  els.standingsGrid.append(...cards.slice(0, 3));
+
+  if (cards.length > 3) {
+    const details = document.createElement("details");
+    details.className = "standings-more";
+    const summary = document.createElement("summary");
+    summary.textContent = t("moreGroups");
+    const grid = document.createElement("div");
+    grid.className = "standings-more-grid";
+    grid.append(...cards.slice(3));
+    details.append(summary, grid);
+    els.standingsGrid.append(details);
+  }
+}
+
+function createStandingsCard(group) {
+    const card = document.createElement("article");
+    card.className = "standings-card";
+
+    const heading = document.createElement("h3");
+    heading.textContent = groupLabel(group.name);
+
+    const table = document.createElement("table");
+    table.className = "standings-table";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>${t("rank")}</th>
+          <th>${t("team")}</th>
+          <th>${t("played")}</th>
+          <th>${t("win")}</th>
+          <th>${t("draw")}</th>
+          <th>${t("loss")}</th>
+          <th>${t("goalDiff")}</th>
+          <th>${t("points")}</th>
+        </tr>
+      </thead>
+    `;
+
+    const body = document.createElement("tbody");
+    [...(group.standings?.entries || [])]
+      .sort((a, b) => Number(statValue(a, "rank")) - Number(statValue(b, "rank")))
+      .forEach((entry) => {
+      const row = document.createElement("tr");
+      if (entry.note?.description) row.className = "advance-row";
+      row.innerHTML = `
+        <td>${statValue(entry, "rank")}</td>
+        <td>${localizedTeamWithFlag(entry.team)}</td>
+        <td>${statValue(entry, "gamesPlayed")}</td>
+        <td>${statValue(entry, "wins")}</td>
+        <td>${statValue(entry, "ties")}</td>
+        <td>${statValue(entry, "losses")}</td>
+        <td>${statValue(entry, "pointDifferential")}</td>
+        <td><strong>${statValue(entry, "points")}</strong></td>
+      `;
+      body.append(row);
+    });
+
+    table.append(body);
+    card.append(heading, table);
+    return card;
+}
+
+function renderAdvancement() {
+  if (!els.advancementGrid) return;
+  els.advancementGrid.textContent = "";
+
+  const knockout = document.createElement("article");
+  knockout.className = "advancement-card";
+  const knockoutHeading = document.createElement("h3");
+  knockoutHeading.textContent = t("knockoutTitle");
+  const knockoutList = document.createElement("div");
+  knockoutList.className = "advancement-list";
+
+  tournamentEvents
+    .filter((event) => new Date(event.date) >= new Date("2026-06-28T00:00:00Z"))
+    .slice(0, 10)
+    .forEach((event) => {
+      const item = document.createElement("div");
+      item.className = "advancement-item";
+      const label = document.createElement("strong");
+      const round = knockoutRoundLabel(event.date);
+      label.textContent = round ? `${formatScheduleTime(event.date)} · ${round}` : formatScheduleTime(event.date);
+      const value = document.createElement("span");
+      value.textContent = knockoutTeamsText(event);
+      item.append(label, value);
+      knockoutList.append(item);
+    });
+
+  knockout.append(knockoutHeading, knockoutList);
+  els.advancementGrid.append(knockout);
+}
+
+async function loadMatches() {
+  const selectedDate = els.date.value;
+  const url = `${API_BASE}?dates=${espnDateRangeForLocalDate(selectedDate)}`;
+  syncState = "loading";
+  renderSyncStatus();
+
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    const matches = (data.events || [])
+      .filter((event) => formatDateOnly(event.date) === selectedDate)
+      .map(normalizeEvent)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    currentMatches = matches;
+    renderMatches(currentMatches);
+    syncState = "updated";
+    lastUpdatedAt = new Date();
+    renderSyncStatus();
+  } catch (error) {
+    currentMatches = [];
+    syncState = "failed";
+    setCounts([]);
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = t("loadError");
+    els.matches.textContent = "";
+    els.matches.append(empty);
+    renderSyncStatus();
+    console.error(error);
+  }
+}
+
+async function loadTournamentData() {
+  try {
+    const [standingsResponse, tournamentResponse] = await Promise.all([
+      fetch(STANDINGS_API, { cache: "no-store" }),
+      fetch(TOURNAMENT_API, { cache: "no-store" }),
+    ]);
+    if (!standingsResponse.ok || !tournamentResponse.ok) throw new Error("Tournament data failed");
+
+    const standingsData = await standingsResponse.json();
+    const tournamentData = await tournamentResponse.json();
+    standingsGroups = standingsData.children || [];
+    tournamentEvents = (tournamentData.events || []).sort((a, b) => new Date(a.date) - new Date(b.date));
+    renderScorers();
+    renderStandings();
+    renderAdvancement();
+    await loadScorerSummaries(tournamentEvents);
+  } catch (error) {
+    els.standingsStatus.textContent = t("syncFailed");
+    console.error(error);
+  }
+}
+
+async function loadScorerSummaries(events) {
+  const candidates = events.filter((event) => {
+    const competition = event.competitions?.[0] || {};
+    const completed = competition.status?.type?.completed || event.status?.type?.completed;
+    const live = competition.status?.type?.state === "in" || event.status?.type?.state === "in";
+    const score = (competition.competitors || []).reduce((sum, competitor) => sum + Number(competitor.score || 0), 0);
+    return event.id && (completed || live || score > 0);
+  });
+
+  if (!candidates.length) {
+    scorerEvents = [];
+    renderScorers();
+    return;
+  }
+
+  try {
+    const summaries = await Promise.all(candidates.map(async (event) => {
+      const response = await fetch(`${SUMMARY_API}?event=${event.id}`, { cache: "no-store" });
+      if (!response.ok) return event;
+      return response.json();
+    }));
+    scorerEvents = summaries;
+    renderScorers();
+  } catch (error) {
+    scorerEvents = candidates;
+    renderScorers();
+    console.error(error);
+  }
+}
+
+function refreshAll() {
+  loadMatches();
+  loadTournamentData();
+}
+
+function scheduleRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(refreshAll, REFRESH_MS);
+}
+
+els.prev.addEventListener("click", () => {
+  els.date.value = shiftDate(els.date.value, -1);
+  loadMatches();
+});
+
+els.next.addEventListener("click", () => {
+  els.date.value = clampTournamentDate(shiftDate(els.date.value, 1));
+  loadMatches();
+});
+
+els.date.addEventListener("change", () => {
+  els.date.value = clampTournamentDate(els.date.value);
+  loadMatches();
+});
+els.refresh.addEventListener("click", refreshAll);
+els.today.addEventListener("click", () => {
+  els.date.value = clampTournamentDate(localDateValue());
+  loadMatches();
+});
+els.appPromptClose.addEventListener("click", hideAppPrompt);
+els.appPrompt.addEventListener("click", (event) => {
+  if (event.target === els.appPrompt) hideAppPrompt();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !els.appPrompt.hidden) hideAppPrompt();
+});
+els.languageSelect.addEventListener("change", () => {
+  currentLang = els.languageSelect.value;
+  localStorage.setItem(LANG_KEY, currentLang);
+  renderStaticText();
+  renderMatches(currentMatches);
+});
+
+els.date.max = FINAL_DATE_LOCAL;
+els.date.value = clampTournamentDate(localDateValue());
+renderStaticText();
+loadMatches();
+loadTournamentData();
+scheduleRefresh();
