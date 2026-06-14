@@ -637,8 +637,7 @@ function renderStaticText() {
 
 function renderVisitorBadge() {
   if (!els.visitorBadge) return;
-  const label = encodeURIComponent(t("visitorCount"));
-  els.visitorBadge.src = `https://visitor-badge.laobi.icu/badge?page_id=JiaNan79.world-cup-live-site&left_text=${label}`;
+  els.visitorBadge.src = "https://visitor-badge.laobi.icu/badge?page_id=JiaNan79.world-cup-live-site&left_text=%20";
   els.visitorBadge.alt = t("visitorCount");
 }
 
