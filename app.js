@@ -181,6 +181,91 @@ const copy = {
     thirdPlaceLabel: "3位決定戦",
     visitorCount: "訪問数",
   },
+  en: {
+    locale: "en-US",
+    htmlLang: "en",
+    title: "World Cup Report",
+    syncReady: "Ready",
+    syncLoading: "Syncing...",
+    syncFailed: "Sync failed",
+    updatedAt: "Updated",
+    refresh: "Refresh match data",
+    languageSwitch: "Language",
+    languageLabel: "Language",
+    dateControls: "Date controls",
+    prevDay: "Previous day",
+    nextDay: "Next day",
+    today: "Today",
+    matchDate: "Match date",
+    summary: "Match summary",
+    totalMatches: "matches",
+    liveMatches: "live",
+    doneMatches: "finished",
+    loading: "Loading match data...",
+    noMatches: "No matches found for this day.",
+    loadError: "Could not load data. Please check the network or refresh later.",
+    livePrefix: "Live",
+    live: "Live",
+    done: "Finished",
+    scheduled: "Scheduled",
+    details: "CCTV Video",
+    openCctv: "Open CCTV Video",
+    appPromptClose: "Close",
+    appPromptTitle: "Could not open CCTV Video",
+    appPromptBody: "If installed, open it from the Safari app banner. Otherwise, download it from the App Store.",
+    iosStore: "Download on App Store",
+    scorersBy: "Goals",
+    crest: "crest",
+    tba: "TBD",
+    venueTba: "Venue TBD",
+    scheduleTitle: "Schedule",
+    scorersTitle: "Top Scorers",
+    scorersHint: "Current tournament and all-time World Cup scoring leaders",
+    currentScorers: "Current Top Scorers",
+    historyScorers: "All-Time Top Scorers",
+    player: "Player",
+    goals: "Goals",
+    moreScorers: "Show more",
+    scorersEmpty: "No scoring data yet.",
+    standingsTitle: "Group Standings",
+    advancementTitle: "Advancement",
+    advancementHint: "Updated from ESPN standings and knockout fixtures",
+    scheduleEmpty: "No upcoming matches yet.",
+    standingsEmpty: "No standings data yet.",
+    rank: "Rank",
+    team: "Team",
+    played: "P",
+    win: "W",
+    draw: "D",
+    loss: "L",
+    goalDiff: "GD",
+    points: "Pts",
+    qualified: "Qualified",
+    knockoutTitle: "Knockout Bracket",
+    pending: "TBD",
+    pendingMatchup: "TBD - TBD",
+    groupLabel: "Group",
+    winner: "Winner",
+    runnerUp: "Runner-up",
+    thirdPlace: "Third place",
+    worldCup: "World Cup",
+    groupStage: "Group Stage",
+    roundOf32: "Round of 32",
+    roundOf16: "Round of 16",
+    quarterfinal: "Quarterfinal",
+    semifinal: "Semifinal",
+    thirdPlaceMatch: "Third-place match",
+    final: "Final",
+    finalBadge: "Final July 20",
+    moreGroups: "Show other groups",
+    roundWinner: "Match {number} winner",
+    round32Label: "Round of 32",
+    round16Label: "Round of 16",
+    quarterfinalLabel: "Quarterfinal",
+    semifinalLabel: "Semifinal",
+    thirdPlaceLabel: "Third-place match",
+    visitorCount: "Visits",
+  },
 };
 
 const teamNames = {
@@ -492,6 +577,7 @@ function statValue(entry, name) {
 
 function groupLabel(name = "") {
   const letter = name.match(/Group\s+([A-Z])/i)?.[1] || name;
+  if (currentLang === "en") return `${t("groupLabel")} ${letter}`;
   return `${t("groupLabel")} ${letter}`;
 }
 
@@ -525,6 +611,7 @@ function localizedCompetitionNote(note = "") {
 
 function localizedVenue(name = "") {
   if (!name) return t("venueTba");
+  if (currentLang === "en") return name;
   return venueNames[name]?.[currentLang] || name;
 }
 
@@ -593,6 +680,7 @@ function renderTeam(root, competitor, goals = []) {
 
 function localizedTeamName(team) {
   const abbr = team?.abbreviation;
+  if (currentLang === "en") return team?.displayName || team?.name || abbr || localizedTeamFromText(team?.displayName || "");
   if (!abbr) return localizedTeamFromText(team?.displayName || "");
   return teamNames[abbr]?.[currentLang] || localizedTeamFromText(team.displayName || abbr);
 }
@@ -637,7 +725,7 @@ function renderStaticText() {
 
 function renderVisitorBadge() {
   if (!els.visitorBadge) return;
-  els.visitorBadge.src = "https://visitor-badge.laobi.icu/badge?page_id=JiaNan79.world-cup-live-site&left_text=%20";
+  els.visitorBadge.src = "https://visitor-badge.laobi.icu/badge?page_id=JiaNan79.world-cup-live-site&left_text=%20&left_color=%23f6f5f1&right_color=%2300685b";
   els.visitorBadge.alt = t("visitorCount");
 }
 
@@ -962,6 +1050,7 @@ function detailScorer(detail) {
 }
 
 function localizedPlayerName(name) {
+  if (currentLang === "en") return name;
   return playerNames[name]?.[currentLang] || playerNameCache[name]?.[currentLang] || name;
 }
 
@@ -979,6 +1068,7 @@ function savePlayerNameCache() {
 
 function queuePlayerNameLookups(names) {
   const lookupLang = currentLang;
+  if (lookupLang === "en") return;
   const targets = [...new Set(names)]
     .filter(Boolean)
     .filter((name) => !playerNames[name]?.[lookupLang])
@@ -1038,9 +1128,18 @@ async function fetchPlayerTranslation(name) {
 
 function localizedScorerTeam(team) {
   if (!team) return t("tba");
+  if (currentLang === "en" && typeof team === "string" && teamNames[team]) return `${teamFlags[team] || ""} ${englishTeamName(team)}`.trim();
   if (typeof team === "string" && teamNames[team]) return `${teamFlags[team] || ""} ${teamNames[team][currentLang]}`.trim();
   if (typeof team === "string") return localizedTeamFromText(team);
   return localizedTeamWithFlag(team);
+}
+
+function englishTeamName(abbr) {
+  const eventTeam = tournamentEvents
+    .flatMap((event) => event.competitions?.[0]?.competitors || [])
+    .map((competitor) => competitor.team)
+    .find((team) => team?.abbreviation === abbr);
+  return eventTeam?.displayName || eventTeam?.name || abbr;
 }
 
 function renderStandings() {
