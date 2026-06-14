@@ -322,16 +322,22 @@ h1 {
 .teams {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 76px minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 14px;
 }
 
 .team {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-rows: 32px auto;
   gap: 8px;
   align-items: center;
+  align-content: start;
   min-width: 0;
+}
+
+.team > div {
+  display: contents;
 }
 
 .team-away {
@@ -353,6 +359,11 @@ h1 {
   grid-row: 1;
 }
 
+.team-away .name {
+  grid-column: 1;
+  grid-row: 1;
+}
+
 .team img {
   width: 32px;
   height: 32px;
@@ -360,7 +371,7 @@ h1 {
 }
 
 .team strong,
-.team span {
+.team .abbr {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -370,11 +381,13 @@ h1 {
 }
 
 .team strong {
+  grid-column: 2;
+  grid-row: 1;
   font-size: 15px;
   line-height: 1.15;
 }
 
-.team span {
+.team .abbr {
   display: none;
 }
 
@@ -387,6 +400,8 @@ h1 {
   font-size: 12px;
   font-weight: 800;
   line-height: 1.25;
+  grid-column: 1 / -1;
+  grid-row: 2;
   list-style: none;
 }
 
@@ -401,12 +416,15 @@ h1 {
 }
 
 .goal-minute {
+  display: inline;
   color: var(--live);
   margin-left: 4px;
 }
 
 .score {
   min-width: 76px;
+  align-self: start;
+  padding-top: 0;
   text-align: center;
   font-size: 30px;
   font-weight: 900;
@@ -869,6 +887,11 @@ h1 {
   }
 
   .team-away div {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .team-away .name {
     grid-column: 1;
     grid-row: 1;
   }

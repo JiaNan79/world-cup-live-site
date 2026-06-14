@@ -281,6 +281,10 @@ const playerNames = {
   "Ismael Saibari": { zh: "伊斯梅尔·塞巴里", ja: "イスマエル・サイバリ" },
   "Vinícius Júnior": { zh: "维尼修斯", ja: "ヴィニシウス" },
   "John McGinn": { zh: "约翰·麦金", ja: "ジョン・マッギン" },
+  "Christian Pulisic": { zh: "克里斯蒂安·普利西奇", ja: "クリスチャン・プリシッチ" },
+  "Malik Tillman": { zh: "马利克·蒂尔曼", ja: "マリク・ティルマン" },
+  "Alex Freeman": { zh: "亚历克斯·弗里曼", ja: "アレックス・フリーマン" },
+  "Julio Enciso": { zh: "胡里奥·恩西索", ja: "フリオ・エンシソ" },
   "Miroslav Klose": { zh: "米洛斯拉夫·克洛泽", ja: "ミロスラフ・クローゼ" },
   Ronaldo: { zh: "罗纳尔多", ja: "ロナウド" },
   "Gerd Muller": { zh: "盖德·穆勒", ja: "ゲルト・ミュラー" },
@@ -311,6 +315,10 @@ const playerTeams = {
   "Ismael Saibari": "MAR",
   "Vinícius Júnior": "BRA",
   "John McGinn": "SCO",
+  "Christian Pulisic": "USA",
+  "Malik Tillman": "USA",
+  "Alex Freeman": "USA",
+  "Julio Enciso": "PAR",
 };
 
 const teamFlags = {
