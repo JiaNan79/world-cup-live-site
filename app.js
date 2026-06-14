@@ -3,12 +3,8 @@ const SUMMARY_API = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.w
 const STANDINGS_API = "https://site.web.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?season=2026";
 const TOURNAMENT_API = `${API_BASE}?dates=20260611-20260720`;
 const CCTV_IOS_APP_URL = "cctvvideo://open";
-const CCTV_ANDROID_INTENT_URL =
-  "intent://open#Intent;scheme=cctvvideo;package=com.cctv.yangshipin.app.androidp;S.browser_fallback_url=https%3A%2F%2Fyangshipin.cn%2F;end";
 const IOS_STORE_URL = "itms-apps://itunes.apple.com/cn/app/id1479814602";
 const IOS_STORE_WEB_URL = "https://apps.apple.com/cn/app/id1479814602";
-const ANDROID_MARKET_URL = "market://search?q=%E5%A4%AE%E8%A7%86%E9%A2%91";
-const ANDROID_STORE_WEB_URL = "https://yangshipin.cn/";
 const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const FINAL_DATE_LOCAL = "2026-07-20";
@@ -47,7 +43,7 @@ const copy = {
     appPromptTitle: "未能自动打开央视频",
     appPromptBody: "如果已安装，请用 Safari 顶部的 App 横幅打开；如果没有安装，可以前往应用商店下载。",
     iosStore: "App Store 下载",
-    androidStore: "Android 下载",
+    scorersBy: "进球",
     crest: "队徽",
     tba: "待定",
     venueTba: "场馆待定",
@@ -131,7 +127,7 @@ const copy = {
     appPromptTitle: "央视频を自動で開けませんでした",
     appPromptBody: "インストール済みの場合は、Safari上部のAppバナーから開いてください。未インストールの場合はストアから入手できます。",
     iosStore: "App Storeで入手",
-    androidStore: "Androidで入手",
+    scorersBy: "得点",
     crest: "エンブレム",
     tba: "未定",
     venueTba: "会場未定",
@@ -142,7 +138,7 @@ const copy = {
     historyScorers: "歴代得点ランキング",
     player: "選手",
     goals: "得点",
-    moreScorers: "6位以下を表示",
+    moreScorers: "4位以下を表示",
     scorersEmpty: "得点データはまだありません。",
     standingsTitle: "グループ順位",
     advancementTitle: "勝ち上がり",
@@ -279,6 +275,7 @@ const playerNames = {
   "Maurício": { zh: "毛里西奥", ja: "マウリシオ" },
   "Oh Hyeon-Gyu": { zh: "吴贤揆", ja: "オ・ヒョンギュ" },
   "Raúl Jiménez": { zh: "劳尔·希门尼斯", ja: "ラウール・ヒメネス" },
+  "Breel Embolo": { zh: "布雷尔·恩博洛", ja: "ブレール・エンボロ" },
   "Miroslav Klose": { zh: "米洛斯拉夫·克洛泽", ja: "ミロスラフ・クローゼ" },
   Ronaldo: { zh: "罗纳尔多", ja: "ロナウド" },
   "Gerd Muller": { zh: "盖德·穆勒", ja: "ゲルト・ミュラー" },
@@ -303,6 +300,7 @@ const playerTeams = {
   "Maurício": "BRA",
   "Oh Hyeon-Gyu": "KOR",
   "Raúl Jiménez": "MEX",
+  "Breel Embolo": "SUI",
 };
 
 const teamFlags = {
@@ -349,13 +347,13 @@ const els = {
   totalCount: document.querySelector("#totalCount"),
   liveCount: document.querySelector("#liveCount"),
   doneCount: document.querySelector("#doneCount"),
-  languageSelect: document.querySelector("#languageSelect"),
   appPrompt: document.querySelector("#appPrompt"),
   appPromptTitle: document.querySelector("#appPromptTitle"),
   appPromptBody: document.querySelector("#appPromptBody"),
   appPromptClose: document.querySelector("#appPromptClose"),
   iosStoreLink: document.querySelector("#iosStoreLink"),
-  androidStoreLink: document.querySelector("#androidStoreLink"),
+  languageMenu: document.querySelector(".language-menu"),
+  languageButtons: document.querySelectorAll("[data-lang]"),
 };
 
 let refreshTimer = null;
@@ -454,6 +452,7 @@ function normalizeEvent(event) {
     link,
     home,
     away,
+    event,
   };
 }
 
@@ -584,7 +583,9 @@ function renderStaticText() {
     node.setAttribute("aria-label", t(node.dataset.i18nAria));
   });
 
-  els.languageSelect.value = currentLang;
+  els.languageButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.lang === currentLang);
+  });
   els.date.max = FINAL_DATE_LOCAL;
   els.finalBadge.textContent = t("finalBadge");
 
@@ -601,9 +602,7 @@ function renderAppPromptText() {
   els.appPromptBody.textContent = t("appPromptBody");
   els.appPromptClose.setAttribute("aria-label", t("appPromptClose"));
   els.iosStoreLink.textContent = t("iosStore");
-  els.androidStoreLink.textContent = t("androidStore");
   els.iosStoreLink.href = isIOS() ? IOS_STORE_URL : IOS_STORE_WEB_URL;
-  els.androidStoreLink.href = isAndroid() ? ANDROID_MARKET_URL : ANDROID_STORE_WEB_URL;
 }
 
 function renderSyncStatus() {
@@ -654,12 +653,16 @@ function renderMatches(matches) {
     if (stateClass) status.classList.add(stateClass);
     node.querySelector(".time-text").textContent = `${formatTime(match.date)} · ${localizedCompetitionNote(match.note)}`;
     node.querySelector(".score").textContent = `${homeScore} - ${awayScore}`;
-    node.querySelector(".venue").textContent = localizedVenue(match.venue);
+    const goalsText = matchGoalSummary(match);
+    const goalNode = node.querySelector(".venue");
+    goalNode.textContent = goalsText;
+    goalNode.hidden = !goalsText;
     const cctvButton = node.querySelector(".details");
     cctvButton.textContent = t("details");
     cctvButton.setAttribute("aria-label", t("openCctv"));
     cctvButton.addEventListener("click", openCctvApp);
-    cctvButton.hidden = currentLang === "ja";
+    cctvButton.hidden = currentLang === "ja" || !isIOS();
+    node.querySelector(".match-footer").hidden = !goalsText && cctvButton.hidden;
 
     renderTeam(node.querySelector(".team-home"), match.home);
     renderTeam(node.querySelector(".team-away"), match.away);
@@ -667,6 +670,22 @@ function renderMatches(matches) {
   });
 
   els.matches.append(fragment);
+}
+
+function matchGoalSummary(match) {
+  const details = eventGoalDetails(match.event || {})
+    .filter(isGoalDetail)
+    .map(detailScorer)
+    .filter((scorer) => scorer.player && scorer.team && teamNames[scorer.team]);
+
+  if (!details.length) return "";
+
+  const goals = details.map((scorer) => {
+    const team = localizedScorerTeam(scorer.team);
+    return `${localizedPlayerName(scorer.player)}（${team}）`;
+  });
+
+  return `${t("scorersBy")} ${goals.join(" / ")}`;
 }
 
 function isIOS() {
@@ -682,7 +701,7 @@ function isMobileDevice() {
 }
 
 function openCctvApp() {
-  if (!isMobileDevice()) {
+  if (!isIOS()) {
     showAppPrompt();
     return;
   }
@@ -696,7 +715,7 @@ function openCctvApp() {
   document.addEventListener("visibilitychange", markOpened, { once: true });
   window.addEventListener("pagehide", markOpened, { once: true });
 
-  window.location.href = isAndroid() ? CCTV_ANDROID_INTENT_URL : CCTV_IOS_APP_URL;
+  window.location.href = CCTV_IOS_APP_URL;
 
   window.setTimeout(() => {
     document.removeEventListener("visibilitychange", markOpened);
@@ -792,12 +811,12 @@ function createScorersCard(title, scorers) {
   `;
 
   const body = document.createElement("tbody");
-  appendScorerRows(body, scorers.slice(0, 5), 0);
+  appendScorerRows(body, scorers.slice(0, 3), 0);
 
   table.append(body);
   card.append(heading, table);
 
-  if (scorers.length > 5) {
+  if (scorers.length > 3) {
     const details = document.createElement("details");
     details.className = "scorers-more";
     const summary = document.createElement("summary");
@@ -806,7 +825,7 @@ function createScorersCard(title, scorers) {
     const moreTable = document.createElement("table");
     moreTable.className = "scorers-table scorers-table--more";
     const moreBody = document.createElement("tbody");
-    appendScorerRows(moreBody, scorers.slice(5), 5);
+    appendScorerRows(moreBody, scorers.slice(3), 3);
     moreTable.append(moreBody);
 
     details.append(summary, moreTable);
@@ -843,6 +862,7 @@ function collectScorersFromEvents(events) {
     details.filter(isGoalDetail).forEach((detail) => {
       const scorer = detailScorer(detail);
       if (!scorer.player) return;
+      if (!scorer.team || !teamNames[scorer.team]) return;
       const key = `${scorer.player}|${scorer.team || ""}`;
       const current = scorerMap.get(key) || { player: scorer.player, team: scorer.team, goals: 0 };
       current.goals += Number(detail.scoreValue || 1);
@@ -882,9 +902,10 @@ function detailScorer(detail) {
   const athlete = detail.athlete || detail.athletes?.[0] || detail.athletesInvolved?.[0] || participant.athlete || {};
   const team = detail.team || participant.team || {};
   const player = athlete.displayName || athlete.shortName || athlete.fullName || detail.athleteName || detail.scorer || "";
+  const teamCode = team.abbreviation || team.shortDisplayName || team.displayName || playerTeams[player] || "";
   return {
     player,
-    team: team.abbreviation || team.shortDisplayName || team.displayName || playerTeams[player] || "",
+    team: teamNames[teamCode] ? teamCode : playerTeams[player] || "",
   };
 }
 
@@ -913,16 +934,16 @@ function renderStandings() {
   }
 
   const cards = standingsGroups.map((group) => createStandingsCard(group));
-  els.standingsGrid.append(...cards.slice(0, 3));
+  els.standingsGrid.append(...cards.slice(0, 2));
 
-  if (cards.length > 3) {
+  if (cards.length > 2) {
     const details = document.createElement("details");
     details.className = "standings-more";
     const summary = document.createElement("summary");
     summary.textContent = t("moreGroups");
     const grid = document.createElement("div");
     grid.className = "standings-more-grid";
-    grid.append(...cards.slice(3));
+    grid.append(...cards.slice(2));
     details.append(summary, grid);
     els.standingsGrid.append(details);
   }
@@ -1129,11 +1150,14 @@ els.appPrompt.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !els.appPrompt.hidden) hideAppPrompt();
 });
-els.languageSelect.addEventListener("change", () => {
-  currentLang = els.languageSelect.value;
-  localStorage.setItem(LANG_KEY, currentLang);
-  renderStaticText();
-  renderMatches(currentMatches);
+els.languageButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    currentLang = button.dataset.lang;
+    localStorage.setItem(LANG_KEY, currentLang);
+    els.languageMenu.open = false;
+    renderStaticText();
+    renderMatches(currentMatches);
+  });
 });
 
 els.date.max = FINAL_DATE_LOCAL;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="apple-itunes-app" content="app-id=1479814602">
     <title>世界杯战报</title>
-    <link rel="stylesheet" href="styles.css?v=20260614-2">
+    <link rel="stylesheet" href="styles.css?v=20260614-3">
   </head>
   <body>
     <main class="shell">
@@ -13,15 +13,16 @@
         <div>
           <p class="eyebrow">FIFA World Cup 2026</p>
           <h1 data-i18n="title">世界杯战报</h1>
+          <p id="finalBadge" class="final-badge" data-i18n="finalBadge">决赛 7月20日</p>
         </div>
         <div class="header-actions">
-          <label class="language-menu">
-            <span data-i18n="languageLabel">语言</span>
-            <select id="languageSelect" aria-label="语言切换" data-i18n-aria="languageSwitch">
-              <option value="zh">中文</option>
-              <option value="ja">日本語</option>
-            </select>
-          </label>
+          <details class="language-menu">
+            <summary id="languageToggle" class="language-toggle" aria-label="语言切换" data-i18n-aria="languageSwitch">🌐</summary>
+            <div class="language-list" id="languageList" role="menu">
+              <button type="button" data-lang="zh">中文</button>
+              <button type="button" data-lang="ja">日本語</button>
+            </div>
+          </details>
           <div class="refresh-box">
             <span id="syncStatus">准备同步</span>
             <button id="refreshButton" class="icon-button" type="button" title="刷新比赛数据" aria-label="刷新比赛数据" data-i18n-title="refresh" data-i18n-aria="refresh">
@@ -43,7 +44,6 @@
           <span aria-hidden="true">›</span>
         </button>
         <button id="todayButton" class="today-button" type="button" data-i18n="today">今天</button>
-        <span id="finalBadge" class="final-badge" data-i18n="finalBadge">决赛 7月20日</span>
       </section>
 
       <section class="summary-strip" aria-label="比赛摘要" data-i18n-aria="summary">
@@ -127,11 +127,10 @@
         <p id="appPromptBody">如果手机里还没有安装央视频，可以前往应用商店下载。</p>
         <div class="app-prompt__actions">
           <a id="iosStoreLink" class="store-button" href="https://yangshipin.cn/" target="_blank" rel="noreferrer">App Store</a>
-          <a id="androidStoreLink" class="store-button" href="https://yangshipin.cn/" target="_blank" rel="noreferrer">Android 下载</a>
         </div>
       </div>
     </div>
 
-    <script src="app.js?v=20260614-2"></script>
+    <script src="app.js?v=20260614-3"></script>
   </body>
 </html>
