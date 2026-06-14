@@ -7,6 +7,7 @@ const IOS_STORE_URL = "itms-apps://itunes.apple.com/cn/app/id1479814602";
 const IOS_STORE_WEB_URL = "https://apps.apple.com/cn/app/id1479814602";
 const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
+const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
 
 const copy = {
@@ -388,6 +389,8 @@ let tournamentEvents = [];
 let scorerEvents = [];
 let standingsGroups = [];
 const matchSummaryCache = new Map();
+const pendingPlayerNameLookups = new Set();
+let playerNameCache = loadPlayerNameCache();
 let syncState = "ready";
 let lastUpdatedAt = null;
 
@@ -673,6 +676,7 @@ function renderSyncStatus() {
 function renderMatches(matches) {
   els.matches.textContent = "";
   setCounts(matches);
+  const visiblePlayerNames = new Set();
 
   if (!matches.length) {
     const empty = document.createElement("div");
@@ -696,6 +700,7 @@ function renderMatches(matches) {
     node.querySelector(".time-text").textContent = `${formatTime(match.date)} · ${localizedCompetitionNote(match.note)}`;
     node.querySelector(".score").textContent = `${homeScore} - ${awayScore}`;
     const goalsByTeam = matchGoalsByTeam(match);
+    goalsByTeam.forEach((goals) => goals.forEach((goal) => visiblePlayerNames.add(goal.player)));
     const homeTeam = match.home?.team || {};
     const awayTeam = match.away?.team || {};
     const cctvButton = node.querySelector(".details");
@@ -712,6 +717,7 @@ function renderMatches(matches) {
   });
 
   els.matches.append(fragment);
+  queuePlayerNameLookups([...visiblePlayerNames]);
 }
 
 function matchGoalsByTeam(match) {
@@ -819,10 +825,12 @@ function renderSchedule() {
 function renderScorers() {
   if (!els.scorersGrid) return;
   els.scorersGrid.textContent = "";
+  const currentScorers = collectTournamentScorers().slice(0, 10);
   els.scorersGrid.append(
-    createScorersCard(t("currentScorers"), collectTournamentScorers().slice(0, 10)),
+    createScorersCard(t("currentScorers"), currentScorers),
     createScorersCard(t("historyScorers"), historicalScorers),
   );
+  queuePlayerNameLookups(currentScorers.map((scorer) => scorer.player));
 }
 
 function createScorersCard(title, scorers) {
@@ -955,7 +963,78 @@ function detailScorer(detail) {
 }
 
 function localizedPlayerName(name) {
-  return playerNames[name]?.[currentLang] || name;
+  return playerNames[name]?.[currentLang] || playerNameCache[name]?.[currentLang] || name;
+}
+
+function loadPlayerNameCache() {
+  try {
+    return JSON.parse(localStorage.getItem(PLAYER_NAME_CACHE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function savePlayerNameCache() {
+  localStorage.setItem(PLAYER_NAME_CACHE_KEY, JSON.stringify(playerNameCache));
+}
+
+function queuePlayerNameLookups(names) {
+  const lookupLang = currentLang;
+  const targets = [...new Set(names)]
+    .filter(Boolean)
+    .filter((name) => !playerNames[name]?.[lookupLang])
+    .filter((name) => !playerNameCache[name]?.[lookupLang])
+    .filter((name) => !playerNameCache[name]?.[`missing_${lookupLang}`])
+    .filter((name) => !pendingPlayerNameLookups.has(`${lookupLang}:${name}`));
+
+  if (!targets.length) return;
+
+  targets.forEach((name) => pendingPlayerNameLookups.add(`${lookupLang}:${name}`));
+
+  Promise.all(targets.map(fetchPlayerTranslation))
+    .then((results) => {
+      let changed = false;
+      results.forEach(({ name, labels }) => {
+        pendingPlayerNameLookups.delete(`${lookupLang}:${name}`);
+        playerNameCache[name] = labels
+          ? { ...(playerNameCache[name] || {}), ...labels }
+          : { ...(playerNameCache[name] || {}), [`missing_${lookupLang}`]: true };
+        changed = true;
+      });
+      if (!changed) return;
+      savePlayerNameCache();
+      renderScorers();
+      renderMatches(currentMatches);
+    })
+    .catch((error) => {
+      targets.forEach((name) => pendingPlayerNameLookups.delete(`${lookupLang}:${name}`));
+      console.error(error);
+    });
+}
+
+async function fetchPlayerTranslation(name) {
+  const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&origin=*&format=json&language=en&limit=5&search=${encodeURIComponent(name)}`;
+  const searchResponse = await fetch(searchUrl, { cache: "force-cache" });
+  if (!searchResponse.ok) return { name, labels: null };
+  const searchData = await searchResponse.json();
+  const entity = (searchData.search || []).find((item) => /football|soccer/i.test(item.description || "")) || searchData.search?.[0];
+  if (!entity?.id) return { name, labels: null };
+
+  const labelsUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&origin=*&format=json&props=labels&languages=zh|zh-cn|zh-hans|ja&ids=${entity.id}`;
+  const labelsResponse = await fetch(labelsUrl, { cache: "force-cache" });
+  if (!labelsResponse.ok) return { name, labels: null };
+  const labelsData = await labelsResponse.json();
+  const labels = labelsData.entities?.[entity.id]?.labels || {};
+  const zh = labels["zh-cn"]?.value || labels["zh-hans"]?.value || labels.zh?.value;
+  const ja = labels.ja?.value;
+  if (!zh && !ja) return { name, labels: null };
+  return {
+    name,
+    labels: {
+      ...(zh ? { zh } : {}),
+      ...(ja ? { ja } : {}),
+    },
+  };
 }
 
 function localizedScorerTeam(team) {
