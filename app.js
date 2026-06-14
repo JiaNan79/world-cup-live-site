@@ -444,6 +444,7 @@ const els = {
   next: document.querySelector("#nextDay"),
   refresh: document.querySelector("#refreshButton"),
   today: document.querySelector("#todayButton"),
+  weekday: document.querySelector("#weekdayText"),
   finalBadge: document.querySelector("#finalBadge"),
   syncStatus: document.querySelector("#syncStatus"),
   matches: document.querySelector("#matches"),
@@ -528,6 +529,10 @@ function formatScheduleTime(value) {
 
 function formatDateOnly(value) {
   return localDateValue(new Date(value));
+}
+
+function formatWeekday(value) {
+  return new Intl.DateTimeFormat(t("locale"), { weekday: "short" }).format(new Date(`${value}T12:00:00`));
 }
 
 function getTeams(competition) {
@@ -672,8 +677,12 @@ function renderTeam(root, competitor, goals = []) {
   goalList.textContent = "";
   goals.forEach((goal) => {
     const item = document.createElement("li");
-    const minute = goal.minute ? ` ${goal.minute}` : "";
-    item.innerHTML = `${localizedPlayerName(goal.player)}<span class="goal-minute">${minute}</span>`;
+    const name = document.createElement("span");
+    name.textContent = localizedPlayerName(goal.player);
+    const minute = document.createElement("span");
+    minute.className = "goal-minute";
+    minute.textContent = goal.minute || "";
+    item.append(name, minute);
     goalList.append(item);
   });
 }
@@ -713,6 +722,7 @@ function renderStaticText() {
   });
   els.date.max = FINAL_DATE_LOCAL;
   els.finalBadge.textContent = t("finalBadge");
+  renderWeekday();
 
   renderSyncStatus();
   renderVisitorBadge();
@@ -721,6 +731,11 @@ function renderStaticText() {
   renderScorers();
   renderStandings();
   renderAdvancement();
+}
+
+function renderWeekday() {
+  if (!els.weekday || !els.date.value) return;
+  els.weekday.textContent = formatWeekday(els.date.value);
 }
 
 function renderVisitorBadge() {
@@ -794,9 +809,9 @@ function renderMatches(matches) {
     cctvButton.textContent = t("details");
     cctvButton.setAttribute("aria-label", t("openCctv"));
     cctvButton.addEventListener("click", openCctvApp);
-    cctvButton.hidden = currentLang === "ja" || !isIOS();
+    cctvButton.hidden = currentLang !== "zh" || !isIOS();
     node.querySelector(".venue").hidden = true;
-    node.querySelector(".match-footer").hidden = cctvButton.hidden;
+    node.querySelector(".match-footer").hidden = true;
 
     renderTeam(node.querySelector(".team-home"), match.home, goalsByTeam.get(homeTeam.abbreviation) || []);
     renderTeam(node.querySelector(".team-away"), match.away, goalsByTeam.get(awayTeam.abbreviation) || []);
@@ -867,6 +882,25 @@ function showAppPrompt() {
 
 function hideAppPrompt() {
   els.appPrompt.hidden = true;
+}
+
+function captureUiState() {
+  return {
+    scrollY: window.scrollY,
+    openKeys: [...document.querySelectorAll("details[data-state-key][open]")]
+      .map((details) => details.dataset.stateKey),
+  };
+}
+
+function restoreUiState(state) {
+  if (!state) return;
+  const openKeys = new Set(state.openKeys || []);
+  document.querySelectorAll("details[data-state-key]").forEach((details) => {
+    details.open = openKeys.has(details.dataset.stateKey);
+  });
+  const restoreScroll = () => window.scrollTo({ top: state.scrollY || 0, left: 0, behavior: "auto" });
+  window.requestAnimationFrame(restoreScroll);
+  window.setTimeout(restoreScroll, 250);
 }
 
 function renderSchedule() {
@@ -957,6 +991,7 @@ function createScorersCard(title, scorers) {
   if (scorers.length > 3) {
     const details = document.createElement("details");
     details.className = "scorers-more";
+    details.dataset.stateKey = `scorers:${title}`;
     const summary = document.createElement("summary");
     summary.textContent = t("moreScorers");
 
@@ -1161,6 +1196,7 @@ function renderStandings() {
   if (cards.length > 2) {
     const details = document.createElement("details");
     details.className = "standings-more";
+    details.dataset.stateKey = "standings:more";
     const summary = document.createElement("summary");
     summary.textContent = t("moreGroups");
     const grid = document.createElement("div");
@@ -1363,8 +1399,9 @@ async function loadScorerSummaries(events) {
 }
 
 function refreshAll() {
-  loadMatches();
-  loadTournamentData();
+  const state = captureUiState();
+  Promise.all([loadMatches(), loadTournamentData()])
+    .finally(() => restoreUiState(state));
 }
 
 function scheduleRefresh() {
@@ -1374,21 +1411,25 @@ function scheduleRefresh() {
 
 els.prev.addEventListener("click", () => {
   els.date.value = shiftDate(els.date.value, -1);
+  renderWeekday();
   loadMatches();
 });
 
 els.next.addEventListener("click", () => {
   els.date.value = clampTournamentDate(shiftDate(els.date.value, 1));
+  renderWeekday();
   loadMatches();
 });
 
 els.date.addEventListener("change", () => {
   els.date.value = clampTournamentDate(els.date.value);
+  renderWeekday();
   loadMatches();
 });
 els.refresh.addEventListener("click", refreshAll);
 els.today.addEventListener("click", () => {
   els.date.value = clampTournamentDate(localDateValue());
+  renderWeekday();
   loadMatches();
 });
 els.appPromptClose.addEventListener("click", hideAppPrompt);

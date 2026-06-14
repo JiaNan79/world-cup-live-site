@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="apple-itunes-app" content="app-id=1479814602">
     <title>世界杯战报</title>
-    <link rel="stylesheet" href="styles.css?v=20260614-11">
+    <link rel="stylesheet" href="styles.css?v=20260614-13">
   </head>
   <body>
     <main class="shell">
@@ -39,7 +39,10 @@
         </button>
         <label class="date-picker">
           <span data-i18n="matchDate">比赛日期</span>
-          <input id="matchDate" type="date">
+          <div class="date-input-row">
+            <input id="matchDate" type="date">
+            <span id="weekdayText" class="weekday-text"></span>
+          </div>
         </label>
         <button id="nextDay" class="icon-button" type="button" title="后一天" aria-label="后一天" data-i18n-title="nextDay" data-i18n-aria="nextDay">
           <span aria-hidden="true">›</span>
@@ -99,7 +102,10 @@
     <template id="matchTemplate">
       <article class="match-card">
         <div class="match-meta">
-          <span class="status-pill"></span>
+          <div class="status-actions">
+            <span class="status-pill"></span>
+            <button class="details" type="button"></button>
+          </div>
           <span class="time-text"></span>
         </div>
         <div class="teams">
@@ -123,7 +129,6 @@
         </div>
         <footer class="match-footer">
           <span class="venue"></span>
-          <button class="details" type="button"></button>
         </footer>
       </article>
     </template>
@@ -139,6 +144,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=20260614-11"></script>
+    <script src="app.js?v=20260614-13"></script>
   </body>
 </html>
