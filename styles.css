@@ -334,7 +334,8 @@ h1 {
 .time-text {
   min-width: 0;
   text-align: right;
-  overflow-wrap: anywhere;
+  overflow: visible;
+  white-space: nowrap;
 }
 
 .status-actions {
@@ -1005,6 +1006,20 @@ h1 {
 
   .matches {
     grid-template-columns: 1fr;
+  }
+
+  .match-meta {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+  }
+
+  .time-text {
+    grid-column: 1 / -1;
+    justify-self: end;
+    font-size: 12px;
+    line-height: 1.2;
   }
 
   .teams {
