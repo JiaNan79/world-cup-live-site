@@ -557,6 +557,22 @@ h1 {
   border-radius: 8px;
 }
 
+.site-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.site-footer img {
+  height: 18px;
+  opacity: 0.72;
+}
+
 .section-heading {
   display: flex;
   justify-content: space-between;

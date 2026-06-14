@@ -93,6 +93,7 @@ const copy = {
     quarterfinalLabel: "8进4",
     semifinalLabel: "半决赛",
     thirdPlaceLabel: "季军赛",
+    visitorCount: "访问数",
   },
   ja: {
     locale: "ja-JP",
@@ -177,6 +178,7 @@ const copy = {
     quarterfinalLabel: "準々決勝",
     semifinalLabel: "準決勝",
     thirdPlaceLabel: "3位決定戦",
+    visitorCount: "訪問数",
   },
 };
 
@@ -285,6 +287,8 @@ const playerNames = {
   "Malik Tillman": { zh: "马利克·蒂尔曼", ja: "マリク・ティルマン" },
   "Alex Freeman": { zh: "亚历克斯·弗里曼", ja: "アレックス・フリーマン" },
   "Julio Enciso": { zh: "胡里奥·恩西索", ja: "フリオ・エンシソ" },
+  "César Montes": { zh: "塞萨尔·蒙特斯", ja: "セサル・モンテス" },
+  "Cesar Montes": { zh: "塞萨尔·蒙特斯", ja: "セサル・モンテス" },
   "Miroslav Klose": { zh: "米洛斯拉夫·克洛泽", ja: "ミロスラフ・クローゼ" },
   Ronaldo: { zh: "罗纳尔多", ja: "ロナウド" },
   "Gerd Muller": { zh: "盖德·穆勒", ja: "ゲルト・ミュラー" },
@@ -319,6 +323,8 @@ const playerTeams = {
   "Malik Tillman": "USA",
   "Alex Freeman": "USA",
   "Julio Enciso": "PAR",
+  "César Montes": "MEX",
+  "Cesar Montes": "MEX",
 };
 
 const teamFlags = {
@@ -372,6 +378,7 @@ const els = {
   iosStoreLink: document.querySelector("#iosStoreLink"),
   languageMenu: document.querySelector(".language-menu"),
   languageButtons: document.querySelectorAll("[data-lang]"),
+  visitorBadge: document.querySelector("#visitorBadge"),
 };
 
 let refreshTimer = null;
@@ -617,11 +624,19 @@ function renderStaticText() {
   els.finalBadge.textContent = t("finalBadge");
 
   renderSyncStatus();
+  renderVisitorBadge();
   renderAppPromptText();
   renderSchedule();
   renderScorers();
   renderStandings();
   renderAdvancement();
+}
+
+function renderVisitorBadge() {
+  if (!els.visitorBadge) return;
+  const label = encodeURIComponent(t("visitorCount"));
+  els.visitorBadge.src = `https://visitor-badge.laobi.icu/badge?page_id=JiaNan79.world-cup-live-site&left_text=${label}`;
+  els.visitorBadge.alt = t("visitorCount");
 }
 
 function renderAppPromptText() {
