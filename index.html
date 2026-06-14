@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="apple-itunes-app" content="app-id=1479814602">
     <title>世界杯战报</title>
-    <link rel="stylesheet" href="styles.css?v=20260614-13">
+    <link rel="stylesheet" href="styles.css?v=20260614-14">
   </head>
   <body>
     <main class="shell">
@@ -41,7 +41,7 @@
           <span data-i18n="matchDate">比赛日期</span>
           <div class="date-input-row">
             <input id="matchDate" type="date">
-            <span id="weekdayText" class="weekday-text"></span>
+            <span id="dateDisplay" class="date-display" aria-hidden="true"></span>
           </div>
         </label>
         <button id="nextDay" class="icon-button" type="button" title="后一天" aria-label="后一天" data-i18n-title="nextDay" data-i18n-aria="nextDay">
@@ -144,6 +144,13 @@
       </div>
     </div>
 
-    <script src="app.js?v=20260614-13"></script>
+    <div id="namePrompt" class="name-prompt" hidden>
+      <div class="name-prompt__panel" role="dialog" aria-modal="true">
+        <button id="namePromptClose" class="name-prompt__close" type="button" aria-label="关闭">×</button>
+        <p id="namePromptText"></p>
+      </div>
+    </div>
+
+    <script src="app.js?v=20260614-14"></script>
   </body>
 </html>

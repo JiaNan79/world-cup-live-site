@@ -95,6 +95,7 @@ const copy = {
     semifinalLabel: "半决赛",
     thirdPlaceLabel: "季军赛",
     visitorCount: "访问数",
+    close: "关闭",
   },
   ja: {
     locale: "ja-JP",
@@ -180,6 +181,7 @@ const copy = {
     semifinalLabel: "準決勝",
     thirdPlaceLabel: "3位決定戦",
     visitorCount: "訪問数",
+    close: "閉じる",
   },
   en: {
     locale: "en-US",
@@ -265,6 +267,7 @@ const copy = {
     semifinalLabel: "Semifinal",
     thirdPlaceLabel: "Third-place match",
     visitorCount: "Visits",
+    close: "Close",
   },
 };
 
@@ -444,7 +447,7 @@ const els = {
   next: document.querySelector("#nextDay"),
   refresh: document.querySelector("#refreshButton"),
   today: document.querySelector("#todayButton"),
-  weekday: document.querySelector("#weekdayText"),
+  dateDisplay: document.querySelector("#dateDisplay"),
   finalBadge: document.querySelector("#finalBadge"),
   syncStatus: document.querySelector("#syncStatus"),
   matches: document.querySelector("#matches"),
@@ -463,6 +466,9 @@ const els = {
   appPromptBody: document.querySelector("#appPromptBody"),
   appPromptClose: document.querySelector("#appPromptClose"),
   iosStoreLink: document.querySelector("#iosStoreLink"),
+  namePrompt: document.querySelector("#namePrompt"),
+  namePromptText: document.querySelector("#namePromptText"),
+  namePromptClose: document.querySelector("#namePromptClose"),
   languageMenu: document.querySelector(".language-menu"),
   languageButtons: document.querySelectorAll("[data-lang]"),
   visitorBadge: document.querySelector("#visitorBadge"),
@@ -533,6 +539,22 @@ function formatDateOnly(value) {
 
 function formatWeekday(value) {
   return new Intl.DateTimeFormat(t("locale"), { weekday: "short" }).format(new Date(`${value}T12:00:00`));
+}
+
+function formatDisplayDate(value) {
+  const date = new Date(`${value}T12:00:00`);
+  const weekday = formatWeekday(value);
+  if (currentLang === "zh") {
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日（${weekday}）`;
+  }
+  if (currentLang === "ja") {
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日（${weekday}）`;
+  }
+  return `${new Intl.DateTimeFormat(t("locale"), {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date)} (${weekday})`;
 }
 
 function getTeams(competition) {
@@ -678,7 +700,19 @@ function renderTeam(root, competitor, goals = []) {
   goals.forEach((goal) => {
     const item = document.createElement("li");
     const name = document.createElement("span");
-    name.textContent = localizedPlayerName(goal.player);
+    const playerName = localizedPlayerName(goal.player);
+    name.className = "goal-name";
+    name.setAttribute("role", "button");
+    name.tabIndex = 0;
+    name.textContent = playerName;
+    name.title = playerName;
+    name.addEventListener("click", () => showNamePrompt(playerName));
+    name.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        showNamePrompt(playerName);
+      }
+    });
     const minute = document.createElement("span");
     minute.className = "goal-minute";
     minute.textContent = goal.minute || "";
@@ -722,7 +756,7 @@ function renderStaticText() {
   });
   els.date.max = FINAL_DATE_LOCAL;
   els.finalBadge.textContent = t("finalBadge");
-  renderWeekday();
+  renderDateDisplay();
 
   renderSyncStatus();
   renderVisitorBadge();
@@ -733,9 +767,9 @@ function renderStaticText() {
   renderAdvancement();
 }
 
-function renderWeekday() {
-  if (!els.weekday || !els.date.value) return;
-  els.weekday.textContent = formatWeekday(els.date.value);
+function renderDateDisplay() {
+  if (!els.dateDisplay || !els.date.value) return;
+  els.dateDisplay.textContent = formatDisplayDate(els.date.value);
 }
 
 function renderVisitorBadge() {
@@ -882,6 +916,16 @@ function showAppPrompt() {
 
 function hideAppPrompt() {
   els.appPrompt.hidden = true;
+}
+
+function showNamePrompt(name) {
+  els.namePromptText.textContent = name;
+  els.namePromptClose.setAttribute("aria-label", t("close"));
+  els.namePrompt.hidden = false;
+}
+
+function hideNamePrompt() {
+  els.namePrompt.hidden = true;
 }
 
 function captureUiState() {
@@ -1411,33 +1455,38 @@ function scheduleRefresh() {
 
 els.prev.addEventListener("click", () => {
   els.date.value = shiftDate(els.date.value, -1);
-  renderWeekday();
+  renderDateDisplay();
   loadMatches();
 });
 
 els.next.addEventListener("click", () => {
   els.date.value = clampTournamentDate(shiftDate(els.date.value, 1));
-  renderWeekday();
+  renderDateDisplay();
   loadMatches();
 });
 
 els.date.addEventListener("change", () => {
   els.date.value = clampTournamentDate(els.date.value);
-  renderWeekday();
+  renderDateDisplay();
   loadMatches();
 });
 els.refresh.addEventListener("click", refreshAll);
 els.today.addEventListener("click", () => {
   els.date.value = clampTournamentDate(localDateValue());
-  renderWeekday();
+  renderDateDisplay();
   loadMatches();
 });
 els.appPromptClose.addEventListener("click", hideAppPrompt);
+els.namePromptClose.addEventListener("click", hideNamePrompt);
 els.appPrompt.addEventListener("click", (event) => {
   if (event.target === els.appPrompt) hideAppPrompt();
 });
+els.namePrompt.addEventListener("click", (event) => {
+  if (event.target === els.namePrompt) hideNamePrompt();
+});
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !els.appPrompt.hidden) hideAppPrompt();
+  if (event.key === "Escape" && !els.namePrompt.hidden) hideNamePrompt();
 });
 els.languageButtons.forEach((button) => {
   button.addEventListener("click", () => {

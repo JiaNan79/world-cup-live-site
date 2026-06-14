@@ -48,13 +48,15 @@ input {
 }
 
 .topbar {
+  position: relative;
+  z-index: 5;
   display: flex;
   justify-content: space-between;
   gap: 24px;
   align-items: center;
   padding: 28px;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   color: #ffffff;
   background:
     radial-gradient(circle at 76% 50%, transparent 0 62px, rgba(255, 255, 255, 0.18) 63px 65px, transparent 66px),
@@ -136,9 +138,11 @@ h1 {
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
-  z-index: 10;
+  z-index: 40;
   display: grid;
   min-width: 112px;
+  max-height: min(220px, calc(100vh - 120px));
+  overflow: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 6px;
@@ -248,22 +252,27 @@ h1 {
   border-radius: 8px;
   padding: 0 12px;
   background: var(--panel);
-  color: var(--ink);
+  color: transparent;
+  caret-color: transparent;
 }
 
 .date-input-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
+  position: relative;
+  display: block;
 }
 
-.weekday-text {
-  min-width: 3.5em;
-  color: var(--muted);
-  font-size: 13px;
+.date-display {
+  position: absolute;
+  inset: 0 36px 0 12px;
+  display: flex;
+  align-items: center;
+  color: var(--ink);
+  font-size: 15px;
   font-weight: 900;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .summary-strip {
@@ -457,8 +466,27 @@ h1 {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
   column-gap: 4px;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.goal-name {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.team-away .goal-name {
+  text-align: right;
 }
 
 .goal-minute {
@@ -507,6 +535,10 @@ h1 {
   display: none;
 }
 
+.name-prompt[hidden] {
+  display: none;
+}
+
 .app-prompt {
   position: fixed;
   inset: 0;
@@ -515,6 +547,52 @@ h1 {
   place-items: center;
   padding: 20px;
   background: rgba(22, 23, 18, 0.42);
+}
+
+.name-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(22, 23, 18, 0.28);
+}
+
+.name-prompt__panel {
+  position: relative;
+  width: min(360px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 24px 48px 24px 20px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.name-prompt__panel p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.name-prompt__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--accent-strong);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .app-prompt__panel {
