@@ -276,6 +276,11 @@ const playerNames = {
   "Oh Hyeon-Gyu": { zh: "吴贤揆", ja: "オ・ヒョンギュ" },
   "Raúl Jiménez": { zh: "劳尔·希门尼斯", ja: "ラウール・ヒメネス" },
   "Breel Embolo": { zh: "布雷尔·恩博洛", ja: "ブレール・エンボロ" },
+  "Miro Muheim": { zh: "米罗·穆海姆", ja: "ミロ・ムハイム" },
+  "Homam Ahmed": { zh: "霍曼·艾哈迈德", ja: "ホマム・アハメド" },
+  "Ismael Saibari": { zh: "伊斯梅尔·塞巴里", ja: "イスマエル・サイバリ" },
+  "Vinícius Júnior": { zh: "维尼修斯", ja: "ヴィニシウス" },
+  "John McGinn": { zh: "约翰·麦金", ja: "ジョン・マッギン" },
   "Miroslav Klose": { zh: "米洛斯拉夫·克洛泽", ja: "ミロスラフ・クローゼ" },
   Ronaldo: { zh: "罗纳尔多", ja: "ロナウド" },
   "Gerd Muller": { zh: "盖德·穆勒", ja: "ゲルト・ミュラー" },
@@ -301,6 +306,11 @@ const playerTeams = {
   "Oh Hyeon-Gyu": "KOR",
   "Raúl Jiménez": "MEX",
   "Breel Embolo": "SUI",
+  "Miro Muheim": "SUI",
+  "Homam Ahmed": "QAT",
+  "Ismael Saibari": "MAR",
+  "Vinícius Júnior": "BRA",
+  "John McGinn": "SCO",
 };
 
 const teamFlags = {
@@ -362,6 +372,7 @@ let currentMatches = [];
 let tournamentEvents = [];
 let scorerEvents = [];
 let standingsGroups = [];
+const matchSummaryCache = new Map();
 let syncState = "ready";
 let lastUpdatedAt = null;
 
@@ -545,13 +556,21 @@ function setCounts(matches) {
   els.doneCount.textContent = matches.filter((match) => match.status?.type?.completed).length;
 }
 
-function renderTeam(root, competitor) {
+function renderTeam(root, competitor, goals = []) {
   const team = competitor?.team || {};
   const name = localizedTeamName(team);
   root.querySelector("img").src = team.logo || "";
   root.querySelector("img").alt = name ? `${name} ${t("crest")}` : "";
   root.querySelector(".name").textContent = name || t("tba");
   root.querySelector(".abbr").textContent = "";
+  const goalList = root.querySelector(".goal-list");
+  goalList.textContent = "";
+  goals.forEach((goal) => {
+    const item = document.createElement("li");
+    const minute = goal.minute ? ` ${goal.minute}` : "";
+    item.innerHTML = `${localizedPlayerName(goal.player)}<span class="goal-minute">${minute}</span>`;
+    goalList.append(item);
+  });
 }
 
 function localizedTeamName(team) {
@@ -653,39 +672,40 @@ function renderMatches(matches) {
     if (stateClass) status.classList.add(stateClass);
     node.querySelector(".time-text").textContent = `${formatTime(match.date)} · ${localizedCompetitionNote(match.note)}`;
     node.querySelector(".score").textContent = `${homeScore} - ${awayScore}`;
-    const goalsText = matchGoalSummary(match);
-    const goalNode = node.querySelector(".venue");
-    goalNode.textContent = goalsText;
-    goalNode.hidden = !goalsText;
+    const goalsByTeam = matchGoalsByTeam(match);
+    const homeTeam = match.home?.team || {};
+    const awayTeam = match.away?.team || {};
     const cctvButton = node.querySelector(".details");
     cctvButton.textContent = t("details");
     cctvButton.setAttribute("aria-label", t("openCctv"));
     cctvButton.addEventListener("click", openCctvApp);
     cctvButton.hidden = currentLang === "ja" || !isIOS();
-    node.querySelector(".match-footer").hidden = !goalsText && cctvButton.hidden;
+    node.querySelector(".venue").hidden = true;
+    node.querySelector(".match-footer").hidden = cctvButton.hidden;
 
-    renderTeam(node.querySelector(".team-home"), match.home);
-    renderTeam(node.querySelector(".team-away"), match.away);
+    renderTeam(node.querySelector(".team-home"), match.home, goalsByTeam.get(homeTeam.abbreviation) || []);
+    renderTeam(node.querySelector(".team-away"), match.away, goalsByTeam.get(awayTeam.abbreviation) || []);
     fragment.append(node);
   });
 
   els.matches.append(fragment);
 }
 
-function matchGoalSummary(match) {
-  const details = eventGoalDetails(match.event || {})
+function matchGoalsByTeam(match) {
+  const source = matchSummaryCache.get(match.id) || match.event || {};
+  const goals = eventGoalDetails(source)
     .filter(isGoalDetail)
     .map(detailScorer)
-    .filter((scorer) => scorer.player && scorer.team && teamNames[scorer.team]);
+    .filter((goal) => goal.player && goal.team && teamNames[goal.team]);
 
-  if (!details.length) return "";
-
-  const goals = details.map((scorer) => {
-    const team = localizedScorerTeam(scorer.team);
-    return `${localizedPlayerName(scorer.player)}（${team}）`;
+  const grouped = new Map();
+  goals.forEach((goal) => {
+    const list = grouped.get(goal.team) || [];
+    list.push(goal);
+    grouped.set(goal.team, list);
   });
 
-  return `${t("scorersBy")} ${goals.join(" / ")}`;
+  return grouped;
 }
 
 function isIOS() {
@@ -894,7 +914,8 @@ function isGoalDetail(detail) {
     detail.shortDisplayName,
     detail.text,
   ].filter(Boolean).join(" ");
-  return detail.scoreValue > 0 || /\b(goal|penalty)\b/i.test(text) || detail.type?.abbreviation === "G";
+  const hasGoalShape = detail.clock && detail.team && detail.participants?.some((item) => item.athlete?.displayName);
+  return detail.scoreValue > 0 || /\b(goal|penalty)\b/i.test(text) || detail.type?.abbreviation === "G" || hasGoalShape;
 }
 
 function detailScorer(detail) {
@@ -906,6 +927,7 @@ function detailScorer(detail) {
   return {
     player,
     team: teamNames[teamCode] ? teamCode : playerTeams[player] || "",
+    minute: detail.clock?.displayValue || detail.time?.displayValue || detail.period?.displayValue || "",
   };
 }
 
@@ -1045,6 +1067,7 @@ async function loadMatches() {
 
     currentMatches = matches;
     renderMatches(currentMatches);
+    await loadCurrentMatchSummaries(currentMatches, selectedDate);
     syncState = "updated";
     lastUpdatedAt = new Date();
     renderSyncStatus();
@@ -1059,6 +1082,31 @@ async function loadMatches() {
     els.matches.append(empty);
     renderSyncStatus();
     console.error(error);
+  }
+}
+
+async function loadCurrentMatchSummaries(matches, selectedDate) {
+  const candidates = matches.filter((match) => {
+    const totalScore = Number(match.home?.score || 0) + Number(match.away?.score || 0);
+    const live = match.status?.type?.state === "in";
+    const done = match.status?.type?.completed;
+    return match.id && (live || done || totalScore > 0);
+  });
+
+  if (!candidates.length) return;
+
+  await Promise.all(candidates.map(async (match) => {
+    try {
+      const response = await fetch(`${SUMMARY_API}?event=${match.id}`, { cache: "no-store" });
+      if (!response.ok) return;
+      matchSummaryCache.set(match.id, await response.json());
+    } catch (error) {
+      console.error(error);
+    }
+  }));
+
+  if (els.date.value === selectedDate) {
+    renderMatches(currentMatches);
   }
 }
 
