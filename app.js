@@ -1484,9 +1484,15 @@ els.appPrompt.addEventListener("click", (event) => {
 els.namePrompt.addEventListener("click", (event) => {
   if (event.target === els.namePrompt) hideNamePrompt();
 });
+document.addEventListener("pointerdown", (event) => {
+  if (!els.languageMenu.open) return;
+  if (els.languageMenu.contains(event.target)) return;
+  els.languageMenu.open = false;
+});
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !els.appPrompt.hidden) hideAppPrompt();
   if (event.key === "Escape" && !els.namePrompt.hidden) hideNamePrompt();
+  if (event.key === "Escape" && els.languageMenu.open) els.languageMenu.open = false;
 });
 els.languageButtons.forEach((button) => {
   button.addEventListener("click", () => {
