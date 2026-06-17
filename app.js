@@ -483,6 +483,7 @@ let standingsGroups = [];
 const matchSummaryCache = new Map();
 const pendingPlayerNameLookups = new Set();
 let playerNameCache = loadPlayerNameCache();
+const detailsOpenState = new Set();
 let syncState = "ready";
 let lastUpdatedAt = null;
 
@@ -929,22 +930,46 @@ function hideNamePrompt() {
 }
 
 function captureUiState() {
+  rememberDetailsState();
   return {
     scrollY: window.scrollY,
-    openKeys: [...document.querySelectorAll("details[data-state-key][open]")]
-      .map((details) => details.dataset.stateKey),
+    openKeys: [...detailsOpenState],
   };
 }
 
 function restoreUiState(state) {
   if (!state) return;
   const openKeys = new Set(state.openKeys || []);
+  detailsOpenState.clear();
+  openKeys.forEach((key) => detailsOpenState.add(key));
   document.querySelectorAll("details[data-state-key]").forEach((details) => {
-    details.open = openKeys.has(details.dataset.stateKey);
+    details.open = detailsOpenState.has(details.dataset.stateKey);
   });
   const restoreScroll = () => window.scrollTo({ top: state.scrollY || 0, left: 0, behavior: "auto" });
   window.requestAnimationFrame(restoreScroll);
   window.setTimeout(restoreScroll, 250);
+}
+
+function rememberDetailsState() {
+  document.querySelectorAll("details[data-state-key]").forEach((details) => {
+    if (details.open) {
+      detailsOpenState.add(details.dataset.stateKey);
+    } else {
+      detailsOpenState.delete(details.dataset.stateKey);
+    }
+  });
+}
+
+function bindDetailsState(details, key) {
+  details.dataset.stateKey = key;
+  details.open = detailsOpenState.has(key);
+  details.addEventListener("toggle", () => {
+    if (details.open) {
+      detailsOpenState.add(key);
+    } else {
+      detailsOpenState.delete(key);
+    }
+  });
 }
 
 function renderSchedule() {
@@ -992,13 +1017,13 @@ function renderScorers() {
   els.scorersGrid.textContent = "";
   const currentScorers = collectTournamentScorers().slice(0, 10);
   els.scorersGrid.append(
-    createScorersCard(t("currentScorers"), currentScorers),
-    createScorersCard(t("historyScorers"), historicalScorers),
+    createScorersCard(t("currentScorers"), currentScorers, "current"),
+    createScorersCard(t("historyScorers"), historicalScorers, "history"),
   );
   queuePlayerNameLookups(currentScorers.map((scorer) => scorer.player));
 }
 
-function createScorersCard(title, scorers) {
+function createScorersCard(title, scorers, id) {
   const card = document.createElement("article");
   card.className = "scorers-card";
 
@@ -1035,7 +1060,7 @@ function createScorersCard(title, scorers) {
   if (scorers.length > 3) {
     const details = document.createElement("details");
     details.className = "scorers-more";
-    details.dataset.stateKey = `scorers:${title}`;
+    bindDetailsState(details, `scorers:${id}`);
     const summary = document.createElement("summary");
     summary.textContent = t("moreScorers");
 
@@ -1240,7 +1265,7 @@ function renderStandings() {
   if (cards.length > 2) {
     const details = document.createElement("details");
     details.className = "standings-more";
-    details.dataset.stateKey = "standings:more";
+    bindDetailsState(details, "standings:more");
     const summary = document.createElement("summary");
     summary.textContent = t("moreGroups");
     const grid = document.createElement("div");
