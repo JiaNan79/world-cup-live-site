@@ -1,6 +1,7 @@
 const API_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
 const SUMMARY_API = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary";
 const STANDINGS_API = "https://site.web.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?season=2026";
+const STATS_API = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/statistics?season=2026";
 const TOURNAMENT_API = `${API_BASE}?dates=20260611-20260720`;
 const CCTV_IOS_APP_URL = "cctvvideo://open";
 const IOS_STORE_URL = "itms-apps://itunes.apple.com/cn/app/id1479814602";
@@ -9,6 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
+const APP_VERSION = "20260617-4";
 
 const copy = {
   zh: {
@@ -456,6 +458,12 @@ const playerTeams = {
   "Kylian Mbappé": "FRA",
 };
 
+const playerAliases = {
+  "Kylian Mbappé": "Kylian Mbappe",
+  "Leo Østigård": "Leo Ostigard",
+  "Marko Arnautović": "Marko Arnautovic",
+};
+
 const teamFlags = {
   ALG: "🇩🇿", ARG: "🇦🇷", AUS: "🇦🇺", AUT: "🇦🇹", BEL: "🇧🇪", BIH: "🇧🇦", BRA: "🇧🇷",
   CAN: "🇨🇦", CHI: "🇨🇱", CIV: "🇨🇮", CMR: "🇨🇲", COD: "🇨🇩", COL: "🇨🇴", CPV: "🇨🇻",
@@ -519,6 +527,7 @@ let currentLang = localStorage.getItem(LANG_KEY) || "zh";
 let currentMatches = [];
 let tournamentEvents = [];
 let scorerEvents = [];
+let officialTournamentScorers = [];
 let standingsGroups = [];
 const matchSummaryCache = new Map();
 const pendingPlayerNameLookups = new Set();
@@ -1056,12 +1065,14 @@ function renderSchedule() {
 function renderScorers() {
   if (!els.scorersGrid) return;
   els.scorersGrid.textContent = "";
-  const currentScorers = collectTournamentScorers().slice(0, 10);
+  const allCurrentScorers = collectTournamentScorers();
+  const currentScorers = allCurrentScorers.slice(0, 10);
+  const historyScorers = collectLiveHistoricalScorers(allCurrentScorers).slice(0, 10);
   els.scorersGrid.append(
     createScorersCard(t("currentScorers"), currentScorers, "current"),
-    createScorersCard(t("historyScorers"), historicalScorers, "history"),
+    createScorersCard(t("historyScorers"), historyScorers, "history"),
   );
-  queuePlayerNameLookups(currentScorers.map((scorer) => scorer.player));
+  queuePlayerNameLookups([...currentScorers, ...historyScorers].map((scorer) => scorer.player));
 }
 
 function createScorersCard(title, scorers, id) {
@@ -1093,48 +1104,75 @@ function createScorersCard(title, scorers, id) {
   `;
 
   const body = document.createElement("tbody");
-  appendScorerRows(body, scorers.slice(0, 3), 0);
+  appendScorerRows(body, scorers);
 
   table.append(body);
   card.append(heading, table);
-
-  if (scorers.length > 3) {
-    const details = document.createElement("details");
-    details.className = "scorers-more";
-    bindDetailsState(details, `scorers:${id}`);
-    const summary = document.createElement("summary");
-    summary.textContent = t("moreScorers");
-
-    const moreTable = document.createElement("table");
-    moreTable.className = "scorers-table scorers-table--more";
-    const moreBody = document.createElement("tbody");
-    appendScorerRows(moreBody, scorers.slice(3), 3);
-    moreTable.append(moreBody);
-
-    details.append(summary, moreTable);
-    card.append(details);
-  }
-
   return card;
 }
 
-function appendScorerRows(body, scorers, startIndex) {
-  scorers.forEach((scorer, index) => {
+function appendScorerRows(body, scorers) {
+  let rank = 0;
+  let previousGoals = null;
+
+  scorers.forEach((scorer) => {
+    if (scorer.goals !== previousGoals) {
+      rank += 1;
+      previousGoals = scorer.goals;
+    }
+
     const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${startIndex + index + 1}</td>
-      <td><strong>${localizedPlayerName(scorer.player)}</strong></td>
-      <td>${localizedScorerTeam(scorer.team)}</td>
-      <td><strong>${scorer.goals}</strong></td>
-    `;
+    const rankCell = document.createElement("td");
+    rankCell.textContent = scorer.isTied ? "" : rank;
+    const playerCell = document.createElement("td");
+    const playerName = document.createElement("strong");
+    playerName.textContent = localizedPlayerName(scorer.player);
+    playerCell.append(playerName);
+    const teamCell = document.createElement("td");
+    teamCell.textContent = localizedScorerTeam(scorer.team);
+    const goalsCell = document.createElement("td");
+    const goals = document.createElement("strong");
+    goals.textContent = scorer.isTied ? "" : scorer.goals;
+    goalsCell.append(goals);
+    row.append(rankCell, playerCell, teamCell, goalsCell);
     body.append(row);
   });
 }
 
 function collectTournamentScorers() {
+  if (officialTournamentScorers.length) return officialTournamentScorers;
   const fromSummaries = collectScorersFromEvents(scorerEvents);
   if (fromSummaries.length) return fromSummaries;
   return collectScorersFromEvents(tournamentEvents);
+}
+
+function collectLiveHistoricalScorers(currentScorers) {
+  const historicalMap = new Map(historicalScorers.map((scorer) => [
+    scorer.player,
+    { ...scorer, goals: Number(scorer.goals || 0) },
+  ]));
+
+  currentScorers.forEach((scorer) => {
+    const base = historicalMap.get(scorer.player);
+    if (base) {
+      base.goals += Number(scorer.goals || 0);
+    } else if (Number(scorer.goals || 0) >= 5) {
+      historicalMap.set(scorer.player, { ...scorer });
+    }
+  });
+
+  return sortAndMarkTies([...historicalMap.values()]);
+}
+
+function sortAndMarkTies(scorers) {
+  const sorted = [...scorers]
+    .sort((a, b) => Number(b.goals || 0) - Number(a.goals || 0) || a.player.localeCompare(b.player));
+  let previousGoals = null;
+  return sorted.map((scorer) => {
+    const tied = scorer.goals === previousGoals;
+    previousGoals = scorer.goals;
+    return { ...scorer, isTied: tied };
+  });
 }
 
 function collectScorersFromEvents(events) {
@@ -1153,7 +1191,7 @@ function collectScorersFromEvents(events) {
     });
   });
 
-  return [...scorerMap.values()].sort((a, b) => b.goals - a.goals || a.player.localeCompare(b.player));
+  return sortAndMarkTies([...scorerMap.values()]);
 }
 
 function eventGoalDetails(event) {
@@ -1185,7 +1223,7 @@ function detailScorer(detail) {
   const participant = detail.participants?.find((item) => item.athlete || item.athleteId) || detail.participants?.[0] || {};
   const athlete = detail.athlete || detail.athletes?.[0] || detail.athletesInvolved?.[0] || participant.athlete || {};
   const team = detail.team || participant.team || {};
-  const player = athlete.displayName || athlete.shortName || athlete.fullName || detail.athleteName || detail.scorer || "";
+  const player = canonicalPlayerName(athlete.displayName || athlete.shortName || athlete.fullName || detail.athleteName || detail.scorer || "");
   const teamCode = team.abbreviation || team.shortDisplayName || team.displayName || playerTeams[player] || "";
   return {
     player,
@@ -1195,8 +1233,13 @@ function detailScorer(detail) {
 }
 
 function localizedPlayerName(name) {
+  name = canonicalPlayerName(name);
   if (currentLang === "en") return name;
   return playerNames[name]?.[currentLang] || playerNameCache[name]?.[currentLang] || name;
+}
+
+function canonicalPlayerName(name) {
+  return playerAliases[name] || name;
 }
 
 function loadPlayerNameCache() {
@@ -1467,16 +1510,19 @@ async function loadCurrentMatchSummaries(matches, selectedDate) {
 
 async function loadTournamentData() {
   try {
-    const [standingsResponse, tournamentResponse] = await Promise.all([
+    const [standingsResponse, tournamentResponse, statsResponse] = await Promise.all([
       fetch(STANDINGS_API, { cache: "no-store" }),
       fetch(TOURNAMENT_API, { cache: "no-store" }),
+      fetch(STATS_API, { cache: "no-store" }).catch(() => null),
     ]);
     if (!standingsResponse.ok || !tournamentResponse.ok) throw new Error("Tournament data failed");
 
     const standingsData = await standingsResponse.json();
     const tournamentData = await tournamentResponse.json();
+    const statsData = statsResponse?.ok ? await statsResponse.json() : null;
     standingsGroups = standingsData.children || [];
     tournamentEvents = (tournamentData.events || []).sort((a, b) => new Date(a.date) - new Date(b.date));
+    officialTournamentScorers = statsData ? parseOfficialScorers(statsData) : [];
     renderScorers();
     renderStandings();
     renderAdvancement();
@@ -1485,6 +1531,23 @@ async function loadTournamentData() {
     els.standingsStatus.textContent = t("syncFailed");
     console.error(error);
   }
+}
+
+function parseOfficialScorers(statsData) {
+  const goalsCategory = (statsData.stats || statsData.categories || [])
+    .find((category) => category.name === "goalsLeaders" || category.abbreviation === "G");
+  const leaders = goalsCategory?.leaders || [];
+  return sortAndMarkTies(leaders
+    .map((leader) => {
+      const athlete = leader.athlete || {};
+      const team = athlete.team || leader.team || {};
+      return {
+        player: canonicalPlayerName(athlete.displayName || athlete.shortName || ""),
+        team: team.abbreviation || team.name || "",
+        goals: Number(leader.value || athlete.statistics?.find?.((stat) => stat.name === "totalGoals")?.value || 0),
+      };
+    })
+    .filter((scorer) => scorer.player && scorer.team && teamNames[scorer.team] && scorer.goals > 0));
 }
 
 async function loadScorerSummaries(events) {
@@ -1585,3 +1648,25 @@ renderStaticText();
 loadMatches();
 loadTournamentData();
 scheduleRefresh();
+registerServiceWorker();
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", async () => {
+    try {
+      let reloading = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (reloading) return;
+        reloading = true;
+        window.location.reload();
+      });
+      const registration = await navigator.serviceWorker.register(`sw.js?v=${APP_VERSION}`);
+      await registration.update();
+      if (registration.waiting) {
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  });
+}
