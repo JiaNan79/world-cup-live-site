@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260618-1";
+const APP_VERSION = "20260618-2";
 
 const copy = {
   zh: {
@@ -1210,7 +1210,19 @@ function appendScorerRows(body, scorers) {
     playerName.textContent = localizedPlayerName(scorer.player);
     playerCell.append(playerName);
     const teamCell = document.createElement("td");
-    teamCell.textContent = localizedScorerTeam(scorer.team);
+    const teamContent = document.createElement("span");
+    teamContent.className = "scorer-team";
+    if (typeof scorer.team === "string" && teamNames[scorer.team]) {
+      const flag = document.createElement("img");
+      flag.src = `https://a.espncdn.com/i/teamlogos/countries/500/${scorer.team.toLowerCase()}.png`;
+      flag.alt = "";
+      flag.loading = "lazy";
+      teamContent.append(flag);
+    }
+    const teamName = document.createElement("span");
+    teamName.textContent = localizedScorerTeamName(scorer.team);
+    teamContent.append(teamName);
+    teamCell.append(teamContent);
     const goalsCell = document.createElement("td");
     const goals = document.createElement("strong");
     goals.textContent = scorer.goals;
@@ -1443,12 +1455,12 @@ async function fetchPlayerTranslation(name) {
   };
 }
 
-function localizedScorerTeam(team) {
+function localizedScorerTeamName(team) {
   if (!team) return t("tba");
-  if (currentLang === "en" && typeof team === "string" && teamNames[team]) return `${teamFlags[team] || ""} ${englishTeamName(team)}`.trim();
-  if (typeof team === "string" && teamNames[team]) return `${teamFlags[team] || ""} ${teamNames[team][currentLang]}`.trim();
+  if (currentLang === "en" && typeof team === "string" && teamNames[team]) return englishTeamName(team);
+  if (typeof team === "string" && teamNames[team]) return teamNames[team][currentLang];
   if (typeof team === "string") return localizedTeamFromText(team);
-  return localizedTeamWithFlag(team);
+  return localizedTeamName(team);
 }
 
 function englishTeamName(abbr) {
