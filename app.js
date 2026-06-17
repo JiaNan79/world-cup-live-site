@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260617-8";
+const APP_VERSION = "20260617-9";
 
 const copy = {
   zh: {
@@ -282,7 +282,7 @@ const teamNames = {
   CHI: { zh: "智利", ja: "チリ" },
   CIV: { zh: "科特迪瓦", ja: "コートジボワール" },
   CMR: { zh: "喀麦隆", ja: "カメルーン" },
-  COD: { zh: "刚果民主共和国", ja: "コンゴ民主共和国" },
+  COD: { zh: "刚果（金）", ja: "コンゴ民主共和国" },
   COL: { zh: "哥伦比亚", ja: "コロンビア" },
   CPV: { zh: "佛得角", ja: "カーボベルデ" },
   CRC: { zh: "哥斯达黎加", ja: "コスタリカ" },
