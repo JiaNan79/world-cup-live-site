@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260617-7";
+const APP_VERSION = "20260617-8";
 
 const copy = {
   zh: {
@@ -57,7 +57,6 @@ const copy = {
     historyScorers: "历史射手榜",
     player: "球员",
     goals: "进球",
-    moreScorers: "显示后续排名",
     scorersEmpty: "暂时没有进球数据。",
     standingsTitle: "小组积分",
     advancementTitle: "晋级情况",
@@ -143,7 +142,6 @@ const copy = {
     historyScorers: "歴代得点ランキング",
     player: "選手",
     goals: "得点",
-    moreScorers: "4位以下を表示",
     scorersEmpty: "得点データはまだありません。",
     standingsTitle: "グループ順位",
     advancementTitle: "勝ち上がり",
@@ -229,7 +227,6 @@ const copy = {
     historyScorers: "All-Time Top Scorers",
     player: "Player",
     goals: "Goals",
-    moreScorers: "Show more",
     scorersEmpty: "No scoring data yet.",
     standingsTitle: "Group Standings",
     advancementTitle: "Advancement",
@@ -1145,7 +1142,7 @@ function renderScorers() {
   queuePlayerNameLookups([...currentScorers, ...historyScorers].map((scorer) => scorer.player));
 }
 
-function createScorersCard(title, scorers, id) {
+function createScorersCard(title, scorers) {
   const card = document.createElement("article");
   card.className = "scorers-card";
 
@@ -1174,27 +1171,13 @@ function createScorersCard(title, scorers, id) {
   `;
 
   const body = document.createElement("tbody");
-  appendScorerRows(body, scorers.slice(0, 3));
+  appendScorerRows(body, scorers);
 
   table.append(body);
-  card.append(heading, table);
-
-  const moreScorers = scorers.slice(3);
-  if (moreScorers.length) {
-    const details = document.createElement("details");
-    details.className = "scorers-more";
-    bindDetailsState(details, `scorers:${id}`);
-    const summary = document.createElement("summary");
-    summary.textContent = t("moreScorers");
-
-    const moreTable = document.createElement("table");
-    moreTable.className = "scorers-table scorers-table--more";
-    const moreBody = document.createElement("tbody");
-    appendScorerRows(moreBody, moreScorers);
-    moreTable.append(moreBody);
-    details.append(summary, moreTable);
-    card.append(details);
-  }
+  const scroller = document.createElement("div");
+  scroller.className = "scorers-scroll";
+  scroller.append(table);
+  card.append(heading, scroller);
 
   return card;
 }

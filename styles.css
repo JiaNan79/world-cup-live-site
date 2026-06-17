@@ -820,6 +820,19 @@ h1 {
   font-size: 13px;
 }
 
+.scorers-scroll {
+  max-height: 252px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.scorers-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.96);
+}
+
 .standings-table th,
 .standings-table td,
 .scorers-table th,
@@ -863,23 +876,6 @@ h1 {
 
 #standingsStatus {
   display: none;
-}
-
-.scorers-more {
-  border-top: 1px solid var(--line);
-}
-
-.scorers-more summary {
-  min-height: 42px;
-  padding: 12px 14px;
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.scorers-table--more td:first-child {
-  width: 42px;
 }
 
 .advance-row td {
