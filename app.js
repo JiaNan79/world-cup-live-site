@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260617-4";
+const APP_VERSION = "20260617-6";
 
 const copy = {
   zh: {
@@ -400,6 +400,11 @@ const playerNames = {
   "Abdulelah Al-Amri": { zh: "阿卜杜勒拉·阿尔-阿姆里", ja: "アブドゥレラー・アルアムリ" },
   "Alexander Isak": { zh: "亚历山大·伊萨克", ja: "アレクサンデル・イサク" },
   "Kylian Mbappé": { zh: "基利安·姆巴佩", ja: "キリアン・エムバペ" },
+  "Livano Comenencia": { zh: "利瓦诺·科门西亚", ja: "リヴァノ・コメネンシア" },
+  "Maxi Araújo": { zh: "马克西·阿劳霍", ja: "マクシ・アラウホ" },
+  "Mohammad Mohebbi": { zh: "穆罕默德·穆赫比", ja: "モハマド・モヘビ" },
+  "Nathaniel Brown": { zh: "纳撒尼尔·布朗", ja: "ナサニエル・ブラウン" },
+  "Omar Rekik": { zh: "奥马尔·雷基克", ja: "オマル・レキク" },
   "Miroslav Klose": { zh: "米洛斯拉夫·克洛泽", ja: "ミロスラフ・クローゼ" },
   Ronaldo: { zh: "罗纳尔多", ja: "ロナウド" },
   "Gerd Muller": { zh: "盖德·穆勒", ja: "ゲルト・ミュラー" },
@@ -1066,8 +1071,8 @@ function renderScorers() {
   if (!els.scorersGrid) return;
   els.scorersGrid.textContent = "";
   const allCurrentScorers = collectTournamentScorers();
-  const currentScorers = allCurrentScorers.slice(0, 10);
-  const historyScorers = collectLiveHistoricalScorers(allCurrentScorers).slice(0, 10);
+  const currentScorers = topPlayersWithTies(allCurrentScorers, 10);
+  const historyScorers = topPlayersWithTies(collectLiveHistoricalScorers(allCurrentScorers), 10);
   els.scorersGrid.append(
     createScorersCard(t("currentScorers"), currentScorers, "current"),
     createScorersCard(t("historyScorers"), historyScorers, "history"),
@@ -1104,26 +1109,36 @@ function createScorersCard(title, scorers, id) {
   `;
 
   const body = document.createElement("tbody");
-  appendScorerRows(body, scorers);
+  appendScorerRows(body, scorers.slice(0, 3));
 
   table.append(body);
   card.append(heading, table);
+
+  const moreScorers = scorers.slice(3);
+  if (moreScorers.length) {
+    const details = document.createElement("details");
+    details.className = "scorers-more";
+    bindDetailsState(details, `scorers:${id}`);
+    const summary = document.createElement("summary");
+    summary.textContent = t("moreScorers");
+
+    const moreTable = document.createElement("table");
+    moreTable.className = "scorers-table scorers-table--more";
+    const moreBody = document.createElement("tbody");
+    appendScorerRows(moreBody, moreScorers);
+    moreTable.append(moreBody);
+    details.append(summary, moreTable);
+    card.append(details);
+  }
+
   return card;
 }
 
 function appendScorerRows(body, scorers) {
-  let rank = 0;
-  let previousGoals = null;
-
   scorers.forEach((scorer) => {
-    if (scorer.goals !== previousGoals) {
-      rank += 1;
-      previousGoals = scorer.goals;
-    }
-
     const row = document.createElement("tr");
     const rankCell = document.createElement("td");
-    rankCell.textContent = scorer.isTied ? "" : rank;
+    rankCell.textContent = scorer.rank;
     const playerCell = document.createElement("td");
     const playerName = document.createElement("strong");
     playerName.textContent = localizedPlayerName(scorer.player);
@@ -1132,7 +1147,7 @@ function appendScorerRows(body, scorers) {
     teamCell.textContent = localizedScorerTeam(scorer.team);
     const goalsCell = document.createElement("td");
     const goals = document.createElement("strong");
-    goals.textContent = scorer.isTied ? "" : scorer.goals;
+    goals.textContent = scorer.goals;
     goalsCell.append(goals);
     row.append(rankCell, playerCell, teamCell, goalsCell);
     body.append(row);
@@ -1167,12 +1182,21 @@ function collectLiveHistoricalScorers(currentScorers) {
 function sortAndMarkTies(scorers) {
   const sorted = [...scorers]
     .sort((a, b) => Number(b.goals || 0) - Number(a.goals || 0) || a.player.localeCompare(b.player));
+  let rank = 0;
   let previousGoals = null;
   return sorted.map((scorer) => {
-    const tied = scorer.goals === previousGoals;
-    previousGoals = scorer.goals;
-    return { ...scorer, isTied: tied };
+    if (scorer.goals !== previousGoals) {
+      rank += 1;
+      previousGoals = scorer.goals;
+    }
+    return { ...scorer, rank };
   });
+}
+
+function topPlayersWithTies(scorers, playerLimit) {
+  if (scorers.length <= playerLimit) return scorers;
+  const cutoffGoals = scorers[playerLimit - 1]?.goals;
+  return scorers.filter((scorer, index) => index < playerLimit || scorer.goals === cutoffGoals);
 }
 
 function collectScorersFromEvents(events) {
