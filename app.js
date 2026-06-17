@@ -378,6 +378,26 @@ const playerNames = {
   "Julio Enciso": { zh: "胡里奥·恩西索", ja: "フリオ・エンシソ" },
   "César Montes": { zh: "塞萨尔·蒙特斯", ja: "セサル・モンテス" },
   "Cesar Montes": { zh: "塞萨尔·蒙特斯", ja: "セサル・モンテス" },
+  "Bradley Barcola": { zh: "布拉德利·巴尔科拉", ja: "ブラッドリー・バルコラ" },
+  "Elijah Just": { zh: "伊莱贾·贾斯特", ja: "イライジャ・ジャスト" },
+  "Ibrahim Mbaye": { zh: "易卜拉欣·姆巴耶", ja: "イブラヒム・エムバイェ" },
+  "Ibrahima Mbaye": { zh: "易卜拉欣·姆巴耶", ja: "イブラヒム・エムバイェ" },
+  "Ibrahima Konaté": { zh: "伊布拉希马·科纳特", ja: "イブラヒマ・コナテ" },
+  "Michael Olise": { zh: "迈克尔·奥利塞", ja: "マイケル・オリーズ" },
+  "Aymen Hussein": { zh: "艾曼·胡辛", ja: "アイメン・フセイン" },
+  "Erling Haaland": { zh: "埃尔林·哈兰德", ja: "アーリング・ハーランド" },
+  "Leo Ostigard": { zh: "莱奥·厄斯蒂高", ja: "レオ・エスティゴール" },
+  "Leo Østigård": { zh: "莱奥·厄斯蒂高", ja: "レオ・エスティゴール" },
+  "Romano Schmid": { zh: "罗曼诺·施密德", ja: "ロマーノ・シュミット" },
+  "Yazan Al-Arab": { zh: "亚赞·阿布·阿拉伯", ja: "ヤザン・アルアラブ" },
+  "Marko Arnautovic": { zh: "马尔科·阿瑙托维奇", ja: "マルコ・アルナウトヴィッチ" },
+  "Marko Arnautović": { zh: "马尔科·阿瑙托维奇", ja: "マルコ・アルナウトヴィッチ" },
+  "Ali Olwan": { zh: "阿里·奥尔旺", ja: "アリ・オルワン" },
+  "Kai Havertz": { zh: "凯·哈费尔茨", ja: "カイ・ハフェルツ" },
+  "Yasin Ayari": { zh: "亚辛·阿亚里", ja: "ヤシン・アヤリ" },
+  "Abdulelah Al-Amri": { zh: "阿卜杜勒拉·阿尔-阿姆里", ja: "アブドゥレラー・アルアムリ" },
+  "Alexander Isak": { zh: "亚历山大·伊萨克", ja: "アレクサンデル・イサク" },
+  "Kylian Mbappé": { zh: "基利安·姆巴佩", ja: "キリアン・エムバペ" },
   "Miroslav Klose": { zh: "米洛斯拉夫·克洛泽", ja: "ミロスラフ・クローゼ" },
   Ronaldo: { zh: "罗纳尔多", ja: "ロナウド" },
   "Gerd Muller": { zh: "盖德·穆勒", ja: "ゲルト・ミュラー" },
@@ -414,6 +434,26 @@ const playerTeams = {
   "Julio Enciso": "PAR",
   "César Montes": "MEX",
   "Cesar Montes": "MEX",
+  "Bradley Barcola": "FRA",
+  "Elijah Just": "NZL",
+  "Ibrahim Mbaye": "SEN",
+  "Ibrahima Mbaye": "SEN",
+  "Ibrahima Konaté": "FRA",
+  "Michael Olise": "FRA",
+  "Aymen Hussein": "IRQ",
+  "Erling Haaland": "NOR",
+  "Leo Ostigard": "NOR",
+  "Leo Østigård": "NOR",
+  "Romano Schmid": "AUT",
+  "Yazan Al-Arab": "JOR",
+  "Marko Arnautovic": "AUT",
+  "Marko Arnautović": "AUT",
+  "Ali Olwan": "JOR",
+  "Kai Havertz": "GER",
+  "Yasin Ayari": "SWE",
+  "Abdulelah Al-Amri": "KSA",
+  "Alexander Isak": "SWE",
+  "Kylian Mbappé": "FRA",
 };
 
 const teamFlags = {
@@ -482,6 +522,7 @@ let scorerEvents = [];
 let standingsGroups = [];
 const matchSummaryCache = new Map();
 const pendingPlayerNameLookups = new Set();
+const failedPlayerNameLookups = new Set();
 let playerNameCache = loadPlayerNameCache();
 const detailsOpenState = new Set();
 let syncState = "ready";
@@ -1160,7 +1201,14 @@ function localizedPlayerName(name) {
 
 function loadPlayerNameCache() {
   try {
-    return JSON.parse(localStorage.getItem(PLAYER_NAME_CACHE_KEY) || "{}");
+    const cache = JSON.parse(localStorage.getItem(PLAYER_NAME_CACHE_KEY) || "{}");
+    Object.values(cache).forEach((entry) => {
+      if (!entry || typeof entry !== "object") return;
+      Object.keys(entry)
+        .filter((key) => key.startsWith("missing_"))
+        .forEach((key) => delete entry[key]);
+    });
+    return cache;
   } catch {
     return {};
   }
@@ -1177,7 +1225,7 @@ function queuePlayerNameLookups(names) {
     .filter(Boolean)
     .filter((name) => !playerNames[name]?.[lookupLang])
     .filter((name) => !playerNameCache[name]?.[lookupLang])
-    .filter((name) => !playerNameCache[name]?.[`missing_${lookupLang}`])
+    .filter((name) => !failedPlayerNameLookups.has(`${lookupLang}:${name}`))
     .filter((name) => !pendingPlayerNameLookups.has(`${lookupLang}:${name}`));
 
   if (!targets.length) return;
@@ -1189,9 +1237,11 @@ function queuePlayerNameLookups(names) {
       let changed = false;
       results.forEach(({ name, labels }) => {
         pendingPlayerNameLookups.delete(`${lookupLang}:${name}`);
-        playerNameCache[name] = labels
-          ? { ...(playerNameCache[name] || {}), ...labels }
-          : { ...(playerNameCache[name] || {}), [`missing_${lookupLang}`]: true };
+        if (!labels) {
+          failedPlayerNameLookups.add(`${lookupLang}:${name}`);
+          return;
+        }
+        playerNameCache[name] = { ...(playerNameCache[name] || {}), ...labels };
         changed = true;
       });
       if (!changed) return;
