@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260617-6";
+const APP_VERSION = "20260617-7";
 
 const copy = {
   zh: {
@@ -316,6 +316,7 @@ const teamNames = {
   NZL: { zh: "新西兰", ja: "ニュージーランド" },
   PAN: { zh: "巴拿马", ja: "パナマ" },
   PAR: { zh: "巴拉圭", ja: "パラグアイ" },
+  PER: { zh: "秘鲁", ja: "ペルー" },
   POL: { zh: "波兰", ja: "ポーランド" },
   POR: { zh: "葡萄牙", ja: "ポルトガル" },
   QAT: { zh: "卡塔尔", ja: "カタール" },
@@ -415,6 +416,38 @@ const playerNames = {
   "Jurgen Klinsmann": { zh: "尤尔根·克林斯曼", ja: "ユルゲン・クリンスマン" },
   "Sandor Kocsis": { zh: "桑多尔·柯奇士", ja: "シャーンドル・コチシュ" },
   "Thomas Muller": { zh: "托马斯·穆勒", ja: "トーマス・ミュラー" },
+  "Helmut Rahn": { zh: "赫尔穆特·拉恩", ja: "ヘルムート・ラーン" },
+  "Gary Lineker": { zh: "加里·莱因克尔", ja: "ゲーリー・リネカー" },
+  "Gabriel Batistuta": { zh: "加布里埃尔·巴蒂斯图塔", ja: "ガブリエル・バティストゥータ" },
+  "Teofilo Cubillas": { zh: "特奥菲洛·库比利亚斯", ja: "テオフィロ・クビジャス" },
+  "Grzegorz Lato": { zh: "格热戈日·拉托", ja: "グジェゴシ・ラトー" },
+  "Ademir": { zh: "阿德米尔", ja: "アデミール" },
+  "Eusebio": { zh: "尤西比奥", ja: "エウゼビオ" },
+  "Christian Vieri": { zh: "克里斯蒂安·维耶里", ja: "クリスティアン・ヴィエリ" },
+  "Vava": { zh: "瓦瓦", ja: "ババ" },
+  "David Villa": { zh: "大卫·比利亚", ja: "ダビド・ビジャ" },
+  "Paolo Rossi": { zh: "保罗·罗西", ja: "パオロ・ロッシ" },
+  "Diego Maradona": { zh: "迭戈·马拉多纳", ja: "ディエゴ・マラドーナ" },
+  "Rivaldo": { zh: "里瓦尔多", ja: "リバウド" },
+  "Rudi Voller": { zh: "鲁迪·沃勒尔", ja: "ルディ・フェラー" },
+  "Careca": { zh: "卡雷卡", ja: "カレカ" },
+  "Johnny Rep": { zh: "约翰尼·雷普", ja: "ヨニー・レップ" },
+  "Luis Suarez": { zh: "路易斯·苏亚雷斯", ja: "ルイス・スアレス" },
+  "Cristiano Ronaldo": { zh: "克里斯蒂亚诺·罗纳尔多", ja: "クリスティアーノ・ロナウド" },
+  "Jairzinho": { zh: "雅伊尔津霍", ja: "ジャイルジーニョ" },
+  "Roberto Baggio": { zh: "罗伯托·巴乔", ja: "ロベルト・バッジョ" },
+  "Uwe Seeler": { zh: "乌韦·席勒", ja: "ウーヴェ・ゼーラー" },
+  "Karl-Heinz Rummenigge": { zh: "卡尔-海因茨·鲁梅尼格", ja: "カール＝ハインツ・ルンメニゲ" },
+  "Guillermo Stabile": { zh: "吉列尔莫·斯塔比莱", ja: "ギジェルモ・スタービレ" },
+  "Leonidas": { zh: "莱昂尼达斯", ja: "レオニダス" },
+  "Oscar Miguez": { zh: "奥斯卡·米格斯", ja: "オスカル・ミゲス" },
+  "Davor Suker": { zh: "达沃·苏克", ja: "ダヴォール・シュケル" },
+  "Neymar": { zh: "内马尔", ja: "ネイマール" },
+  "James Rodriguez": { zh: "哈梅斯·罗德里格斯", ja: "ハメス・ロドリゲス" },
+  "Oldrich Nejedly": { zh: "奥尔德日赫·内耶德利", ja: "オルドジフ・ネイエドリー" },
+  "Lajos Tichy": { zh: "拉约什·蒂希", ja: "ラヨシュ・ティヒ" },
+  "Andrzej Szarmach": { zh: "安杰伊·沙尔马赫", ja: "アンジェイ・シャルマフ" },
+  "Hans Schafer": { zh: "汉斯·舍费尔", ja: "ハンス・シェーファー" },
 };
 
 const playerTeams = {
@@ -475,7 +508,7 @@ const teamFlags = {
   CRC: "🇨🇷", CRO: "🇭🇷", CUW: "🇨🇼", CZE: "🇨🇿", DEN: "🇩🇰", ECU: "🇪🇨", EGY: "🇪🇬",
   ENG: "🏴", ESP: "🇪🇸", FRA: "🇫🇷", GER: "🇩🇪", GHA: "🇬🇭", HAI: "🇭🇹", HUN: "🇭🇺",
   IRN: "🇮🇷", IRQ: "🇮🇶", ITA: "🇮🇹", JOR: "🇯🇴", JPN: "🇯🇵", KOR: "🇰🇷", MAR: "🇲🇦",
-  MEX: "🇲🇽", NED: "🇳🇱", NGA: "🇳🇬", NOR: "🇳🇴", NZL: "🇳🇿", PAN: "🇵🇦", PAR: "🇵🇾",
+  MEX: "🇲🇽", NED: "🇳🇱", NGA: "🇳🇬", NOR: "🇳🇴", NZL: "🇳🇿", PAN: "🇵🇦", PAR: "🇵🇾", PER: "🇵🇪",
   POL: "🇵🇱", POR: "🇵🇹", QAT: "🇶🇦", RSA: "🇿🇦", KSA: "🇸🇦", SAU: "🇸🇦", SCO: "🏴",
   SEN: "🇸🇳", SRB: "🇷🇸", SUI: "🇨🇭", SWE: "🇸🇪", TUN: "🇹🇳", TUR: "🇹🇷", UKR: "🇺🇦",
   URU: "🇺🇾", USA: "🇺🇸", UZB: "🇺🇿", WAL: "🏴", ZAF: "🇿🇦",
@@ -491,7 +524,39 @@ const historicalScorers = [
   { player: "Pele", team: "BRA", goals: 12 },
   { player: "Jurgen Klinsmann", team: "GER", goals: 11 },
   { player: "Sandor Kocsis", team: "HUN", goals: 11 },
+  { player: "Helmut Rahn", team: "GER", goals: 10 },
+  { player: "Gary Lineker", team: "ENG", goals: 10 },
+  { player: "Gabriel Batistuta", team: "ARG", goals: 10 },
+  { player: "Teofilo Cubillas", team: "PER", goals: 10 },
+  { player: "Grzegorz Lato", team: "POL", goals: 10 },
   { player: "Thomas Muller", team: "GER", goals: 10 },
+  { player: "Ademir", team: "BRA", goals: 9 },
+  { player: "Eusebio", team: "POR", goals: 9 },
+  { player: "Christian Vieri", team: "ITA", goals: 9 },
+  { player: "Vava", team: "BRA", goals: 9 },
+  { player: "David Villa", team: "ESP", goals: 9 },
+  { player: "Paolo Rossi", team: "ITA", goals: 9 },
+  { player: "Jairzinho", team: "BRA", goals: 9 },
+  { player: "Roberto Baggio", team: "ITA", goals: 9 },
+  { player: "Uwe Seeler", team: "GER", goals: 9 },
+  { player: "Karl-Heinz Rummenigge", team: "GER", goals: 9 },
+  { player: "Diego Maradona", team: "ARG", goals: 8 },
+  { player: "Rivaldo", team: "BRA", goals: 8 },
+  { player: "Rudi Voller", team: "GER", goals: 8 },
+  { player: "Cristiano Ronaldo", team: "POR", goals: 8 },
+  { player: "Guillermo Stabile", team: "ARG", goals: 8 },
+  { player: "Leonidas", team: "BRA", goals: 8 },
+  { player: "Oscar Miguez", team: "URU", goals: 8 },
+  { player: "Davor Suker", team: "CRO", goals: 8 },
+  { player: "Neymar", team: "BRA", goals: 8 },
+  { player: "James Rodriguez", team: "COL", goals: 8 },
+  { player: "Careca", team: "BRA", goals: 7 },
+  { player: "Johnny Rep", team: "NED", goals: 7 },
+  { player: "Luis Suarez", team: "URU", goals: 7 },
+  { player: "Oldrich Nejedly", team: "CZE", goals: 7 },
+  { player: "Lajos Tichy", team: "HUN", goals: 7 },
+  { player: "Andrzej Szarmach", team: "POL", goals: 7 },
+  { player: "Hans Schafer", team: "GER", goals: 7 },
 ];
 
 const els = {
@@ -1072,7 +1137,7 @@ function renderScorers() {
   els.scorersGrid.textContent = "";
   const allCurrentScorers = collectTournamentScorers();
   const currentScorers = topPlayersWithTies(allCurrentScorers, 10);
-  const historyScorers = topPlayersWithTies(collectLiveHistoricalScorers(allCurrentScorers), 10);
+  const historyScorers = topRanksWithTies(collectLiveHistoricalScorers(allCurrentScorers), 10);
   els.scorersGrid.append(
     createScorersCard(t("currentScorers"), currentScorers, "current"),
     createScorersCard(t("historyScorers"), historyScorers, "history"),
@@ -1197,6 +1262,10 @@ function topPlayersWithTies(scorers, playerLimit) {
   if (scorers.length <= playerLimit) return scorers;
   const cutoffGoals = scorers[playerLimit - 1]?.goals;
   return scorers.filter((scorer, index) => index < playerLimit || scorer.goals === cutoffGoals);
+}
+
+function topRanksWithTies(scorers, rankLimit) {
+  return scorers.filter((scorer) => Number(scorer.rank || 0) <= rankLimit);
 }
 
 function collectScorersFromEvents(events) {
