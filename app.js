@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260617-9";
+const APP_VERSION = "20260618-1";
 
 const copy = {
   zh: {
@@ -445,6 +445,13 @@ const playerNames = {
   "Lajos Tichy": { zh: "拉约什·蒂希", ja: "ラヨシュ・ティヒ" },
   "Andrzej Szarmach": { zh: "安杰伊·沙尔马赫", ja: "アンジェイ・シャルマフ" },
   "Hans Schafer": { zh: "汉斯·舍费尔", ja: "ハンス・シェーファー" },
+  "João Neves": { zh: "若昂·内维斯", ja: "ジョアン・ネヴェス" },
+  "Yoane Wissa": { zh: "约安·维萨", ja: "ヨアン・ウィサ" },
+  "Harry Kane": { zh: "哈里·凯恩", ja: "ハリー・ケイン" },
+  "Martin Baturina": { zh: "马丁·巴图里纳", ja: "マルティン・バトゥリナ" },
+  "Petar Musa": { zh: "佩塔尔·穆萨", ja: "ペタル・ムサ" },
+  "Jude Bellingham": { zh: "裘德·贝林厄姆", ja: "ジュード・ベリンガム" },
+  "Marcus Rashford": { zh: "马库斯·拉什福德", ja: "マーカス・ラッシュフォード" },
 };
 
 const playerTeams = {
@@ -491,6 +498,13 @@ const playerTeams = {
   "Abdulelah Al-Amri": "KSA",
   "Alexander Isak": "SWE",
   "Kylian Mbappé": "FRA",
+  "João Neves": "POR",
+  "Yoane Wissa": "COD",
+  "Harry Kane": "ENG",
+  "Martin Baturina": "CRO",
+  "Petar Musa": "CRO",
+  "Jude Bellingham": "ENG",
+  "Marcus Rashford": "ENG",
 };
 
 const playerAliases = {
@@ -617,6 +631,10 @@ function localDateValue(date = new Date()) {
 
 function espnDateValue(value) {
   return value.replaceAll("-", "");
+}
+
+function freshUrl(url) {
+  return `${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}`;
 }
 
 function espnDateRangeForLocalDate(value) {
@@ -978,7 +996,7 @@ function matchGoalsByTeam(match) {
   const source = matchSummaryCache.get(match.id) || match.event || {};
   const goals = eventGoalDetails(source)
     .filter(isGoalDetail)
-    .map(detailScorer)
+    .map((detail) => detailScorer(detail, source))
     .filter((goal) => goal.player && goal.team && teamNames[goal.team]);
 
   const grouped = new Map();
@@ -1203,10 +1221,26 @@ function appendScorerRows(body, scorers) {
 }
 
 function collectTournamentScorers() {
-  if (officialTournamentScorers.length) return officialTournamentScorers;
   const fromSummaries = collectScorersFromEvents(scorerEvents);
-  if (fromSummaries.length) return fromSummaries;
-  return collectScorersFromEvents(tournamentEvents);
+  const fromEvents = collectScorersFromEvents(tournamentEvents);
+  return mergeScorerSources(officialTournamentScorers, fromSummaries, fromEvents);
+}
+
+function mergeScorerSources(...sources) {
+  const scorerMap = new Map();
+
+  sources.flat().forEach((scorer) => {
+    if (!scorer?.player || !scorer?.team) return;
+    const player = canonicalPlayerName(scorer.player);
+    const key = `${player}|${scorer.team}`;
+    const goals = Number(scorer.goals || 0);
+    const current = scorerMap.get(key);
+    if (!current || goals > current.goals) {
+      scorerMap.set(key, { player, team: scorer.team, goals });
+    }
+  });
+
+  return sortAndMarkTies([...scorerMap.values()]);
 }
 
 function collectLiveHistoricalScorers(currentScorers) {
@@ -1256,10 +1290,14 @@ function collectScorersFromEvents(events) {
 
   events.forEach((event) => {
     const details = eventGoalDetails(event);
-    details.filter(isGoalDetail).forEach((detail) => {
-      const scorer = detailScorer(detail);
+    const seenGoals = new Set();
+    details.filter((detail) => isGoalDetail(detail) && !detail.ownGoal).forEach((detail) => {
+      const scorer = detailScorer(detail, event);
       if (!scorer.player) return;
       if (!scorer.team || !teamNames[scorer.team]) return;
+      const fingerprint = `${scorer.player}|${scorer.team}|${scorer.minute}|${detail.scoreValue || 1}`;
+      if (seenGoals.has(fingerprint)) return;
+      seenGoals.add(fingerprint);
       const key = `${scorer.player}|${scorer.team || ""}`;
       const current = scorerMap.get(key) || { player: scorer.player, team: scorer.team, goals: 0 };
       current.goals += Number(detail.scoreValue || 1);
@@ -1295,12 +1333,18 @@ function isGoalDetail(detail) {
   return detail.scoreValue > 0 || /\b(goal|penalty)\b/i.test(text) || detail.type?.abbreviation === "G" || hasGoalShape;
 }
 
-function detailScorer(detail) {
+function detailScorer(detail, event = null) {
   const participant = detail.participants?.find((item) => item.athlete || item.athleteId) || detail.participants?.[0] || {};
   const athlete = detail.athlete || detail.athletes?.[0] || detail.athletesInvolved?.[0] || participant.athlete || {};
   const team = detail.team || participant.team || {};
   const player = canonicalPlayerName(athlete.displayName || athlete.shortName || athlete.fullName || detail.athleteName || detail.scorer || "");
-  const teamCode = team.abbreviation || team.shortDisplayName || team.displayName || playerTeams[player] || "";
+  const competition = event?.competitions?.[0] || event?.header?.competitions?.[0] || {};
+  const teamId = String(team.id || "");
+  const eventTeam = (competition.competitors || [])
+    .find((competitor) => String(competitor.team?.id || competitor.id || "") === teamId)?.team || {};
+  const teamCode = team.abbreviation || team.shortDisplayName || team.displayName
+    || eventTeam.abbreviation || eventTeam.shortDisplayName || eventTeam.displayName
+    || playerTeams[player] || "";
   return {
     player,
     team: teamNames[teamCode] ? teamCode : playerTeams[player] || "",
@@ -1530,7 +1574,7 @@ async function loadMatches() {
   renderSyncStatus();
 
   try {
-    const response = await fetch(url, { cache: "no-store" });
+    const response = await fetch(freshUrl(url), { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
@@ -1571,7 +1615,7 @@ async function loadCurrentMatchSummaries(matches, selectedDate) {
 
   await Promise.all(candidates.map(async (match) => {
     try {
-      const response = await fetch(`${SUMMARY_API}?event=${match.id}`, { cache: "no-store" });
+      const response = await fetch(freshUrl(`${SUMMARY_API}?event=${match.id}`), { cache: "no-store" });
       if (!response.ok) return;
       matchSummaryCache.set(match.id, await response.json());
     } catch (error) {
@@ -1587,9 +1631,9 @@ async function loadCurrentMatchSummaries(matches, selectedDate) {
 async function loadTournamentData() {
   try {
     const [standingsResponse, tournamentResponse, statsResponse] = await Promise.all([
-      fetch(STANDINGS_API, { cache: "no-store" }),
-      fetch(TOURNAMENT_API, { cache: "no-store" }),
-      fetch(STATS_API, { cache: "no-store" }).catch(() => null),
+      fetch(freshUrl(STANDINGS_API), { cache: "no-store" }),
+      fetch(freshUrl(TOURNAMENT_API), { cache: "no-store" }),
+      fetch(freshUrl(STATS_API), { cache: "no-store" }).catch(() => null),
     ]);
     if (!standingsResponse.ok || !tournamentResponse.ok) throw new Error("Tournament data failed");
 
@@ -1641,19 +1685,20 @@ async function loadScorerSummaries(events) {
     return;
   }
 
-  try {
-    const summaries = await Promise.all(candidates.map(async (event) => {
-      const response = await fetch(`${SUMMARY_API}?event=${event.id}`, { cache: "no-store" });
-      if (!response.ok) return event;
-      return response.json();
-    }));
-    scorerEvents = summaries;
-    renderScorers();
-  } catch (error) {
-    scorerEvents = candidates;
-    renderScorers();
-    console.error(error);
-  }
+  const summaries = await Promise.all(candidates.map(async (event) => {
+    try {
+      const response = await fetch(freshUrl(`${SUMMARY_API}?event=${event.id}`), { cache: "no-store" });
+      if (!response.ok) return matchSummaryCache.get(event.id) || event;
+      const summary = await response.json();
+      matchSummaryCache.set(event.id, summary);
+      return summary;
+    } catch (error) {
+      console.error(error);
+      return matchSummaryCache.get(event.id) || event;
+    }
+  }));
+  scorerEvents = summaries;
+  renderScorers();
 }
 
 function refreshAll() {
