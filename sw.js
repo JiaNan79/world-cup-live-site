@@ -1,4 +1,4 @@
-const CACHE_NAME = "world-cup-live-site-20260621-1";
+const CACHE_NAME = "world-cup-live-site-20260621-2";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

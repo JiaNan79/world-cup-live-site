@@ -379,9 +379,9 @@ h1 {
 .team {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
-  grid-template-rows: 32px auto;
+  grid-template-rows: auto auto;
   gap: 8px;
-  align-items: center;
+  align-items: start;
   align-content: start;
   min-width: 0;
 }
@@ -421,6 +421,7 @@ h1 {
 .team img {
   width: 32px;
   height: 32px;
+  flex: 0 0 auto;
   object-fit: contain;
 }
 
@@ -428,8 +429,9 @@ h1 {
 .team .abbr {
   display: block;
   min-width: 0;
-  white-space: nowrap;
-  overflow-wrap: normal;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .team strong {
@@ -823,9 +825,14 @@ h1 {
   font-size: 13px;
 }
 
+.scorers-table {
+  table-layout: fixed;
+}
+
 .scorers-scroll {
   max-height: 252px;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
 }
 
@@ -862,22 +869,42 @@ h1 {
 .scorers-table th:nth-child(2),
 .scorers-table td:nth-child(2) {
   text-align: left;
-  width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 150px;
+  width: 45%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .scorers-table th:nth-child(3),
 .scorers-table td:nth-child(3) {
   text-align: left;
+  width: 35%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.scorers-table th:first-child,
+.scorers-table td:first-child {
+  width: 44px;
+}
+
+.scorers-table th:last-child,
+.scorers-table td:last-child {
+  width: 48px;
 }
 
 .scorer-team {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  align-items: flex-start;
   gap: 6px;
-  white-space: nowrap;
+  min-width: 0;
+  white-space: normal;
+}
+
+.scorer-team > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .scorer-team img {
@@ -1042,6 +1069,7 @@ h1 {
 
   .team {
     grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-rows: auto auto;
     gap: 6px;
   }
 
@@ -1148,5 +1176,15 @@ h1 {
   .scorers-table th,
   .scorers-table td {
     padding: 8px 6px;
+  }
+
+  .scorers-table th:first-child,
+  .scorers-table td:first-child {
+    width: 38px;
+  }
+
+  .scorers-table th:last-child,
+  .scorers-table td:last-child {
+    width: 40px;
   }
 }
