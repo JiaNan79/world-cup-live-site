@@ -1803,7 +1803,7 @@ renderStaticText();
 loadMatches();
 loadTournamentData();
 scheduleRefresh();
-registerServiceWorker();
+// registerServiceWorker();
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
