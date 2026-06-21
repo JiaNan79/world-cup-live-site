@@ -9,7 +9,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260621-3";
+const APP_VERSION = "20260621-4";
 
 const copy = {
   zh: {
@@ -1197,7 +1197,7 @@ function renderSchedule() {
 function renderScorers() {
   if (!els.scorersGrid) return;
   const allCurrentScorers = collectTournamentScorers();
-  const currentScorers = topPlayersWithTies(allCurrentScorers, 10);
+  const currentScorers = topRanksWithTies(allCurrentScorers, 10);
   const historyScorers = topRanksWithTies(collectLiveHistoricalScorers(allCurrentScorers), 10);
   els.scorersGrid.replaceChildren(
     createScorersCard(t("currentScorers"), currentScorers, "current"),
@@ -1330,12 +1330,6 @@ function sortAndMarkTies(scorers) {
     }
     return { ...scorer, rank };
   });
-}
-
-function topPlayersWithTies(scorers, playerLimit) {
-  if (scorers.length <= playerLimit) return scorers;
-  const cutoffGoals = scorers[playerLimit - 1]?.goals;
-  return scorers.filter((scorer, index) => index < playerLimit || scorer.goals === cutoffGoals);
 }
 
 function topRanksWithTies(scorers, rankLimit) {
