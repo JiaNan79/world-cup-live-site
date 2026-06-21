@@ -1,5 +1,4 @@
 const API_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
-const SUMMARY_API = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary";
 const STANDINGS_API = "https://site.web.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?season=2026";
 const STATS_API = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/statistics?season=2026";
 const TOURNAMENT_API = `${API_BASE}?dates=20260611-20260720`;
@@ -10,7 +9,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260618-2";
+const APP_VERSION = "20260621-1";
 
 const copy = {
   zh: {
@@ -97,6 +96,7 @@ const copy = {
     thirdPlaceLabel: "季军赛",
     visitorCount: "访问数",
     close: "关闭",
+    ownGoal: "乌龙",
   },
   ja: {
     locale: "ja-JP",
@@ -182,6 +182,7 @@ const copy = {
     thirdPlaceLabel: "3位決定戦",
     visitorCount: "訪問数",
     close: "閉じる",
+    ownGoal: "オウンゴール",
   },
   en: {
     locale: "en-US",
@@ -267,6 +268,7 @@ const copy = {
     thirdPlaceLabel: "Third-place match",
     visitorCount: "Visits",
     close: "Close",
+    ownGoal: "OG",
   },
 };
 
@@ -452,6 +454,16 @@ const playerNames = {
   "Petar Musa": { zh: "佩塔尔·穆萨", ja: "ペタル・ムサ" },
   "Jude Bellingham": { zh: "裘德·贝林厄姆", ja: "ジュード・ベリンガム" },
   "Marcus Rashford": { zh: "马库斯·拉什福德", ja: "マーカス・ラッシュフォード" },
+  "Michal Sadílek": { zh: "米哈尔·萨迪莱克", ja: "ミハル・サディーレク" },
+  "Teboho Mokoena": { zh: "特博霍·莫科纳", ja: "テボホ・モコエナ" },
+  "Johan Manzambi": { zh: "约翰·曼赞比", ja: "ヨハン・マンザンビ" },
+  "Rubén Vargas": { zh: "鲁文·巴尔加斯", ja: "ルベン・バルガス" },
+  "Ermin Mahmic": { zh: "埃尔明·马赫米奇", ja: "エルミン・マフミッチ" },
+  "Granit Xhaka": { zh: "格拉尼特·扎卡", ja: "グラニト・ジャカ" },
+  "Jonathan David": { zh: "乔纳森·戴维", ja: "ジョナサン・デイヴィッド" },
+  "Nathan Saliba": { zh: "内森·萨利巴", ja: "ネイサン・サリバ" },
+  "Mohamed Manai": { zh: "穆罕默德·马奈", ja: "モハメド・マナイ" },
+  "Luis Romo": { zh: "路易斯·罗莫", ja: "ルイス・ロモ" },
 };
 
 const playerTeams = {
@@ -505,6 +517,16 @@ const playerTeams = {
   "Petar Musa": "CRO",
   "Jude Bellingham": "ENG",
   "Marcus Rashford": "ENG",
+  "Michal Sadílek": "CZE",
+  "Teboho Mokoena": "RSA",
+  "Johan Manzambi": "SUI",
+  "Rubén Vargas": "SUI",
+  "Ermin Mahmic": "BIH",
+  "Granit Xhaka": "SUI",
+  "Jonathan David": "CAN",
+  "Nathan Saliba": "CAN",
+  "Mohamed Manai": "QAT",
+  "Luis Romo": "MEX",
 };
 
 const playerAliases = {
@@ -604,13 +626,17 @@ const els = {
 };
 
 let refreshTimer = null;
+let refreshInFlight = false;
+let matchesRequestId = 0;
 let currentLang = localStorage.getItem(LANG_KEY) || "zh";
 let currentMatches = [];
 let tournamentEvents = [];
-let scorerEvents = [];
 let officialTournamentScorers = [];
 let standingsGroups = [];
-const matchSummaryCache = new Map();
+let matchesRenderSignature = "";
+let scorersRenderSignature = "";
+let standingsRenderSignature = "";
+let advancementRenderSignature = "";
 const pendingPlayerNameLookups = new Set();
 const failedPlayerNameLookups = new Set();
 let playerNameCache = loadPlayerNameCache();
@@ -851,7 +877,7 @@ function renderTeam(root, competitor, goals = []) {
     });
     const minute = document.createElement("span");
     minute.className = "goal-minute";
-    minute.textContent = goal.minute || "";
+    minute.textContent = `${goal.minute || ""}${goal.ownGoal ? ` ${t("ownGoal")}` : ""}`.trim();
     item.append(name, minute);
     goalList.append(item);
   });
@@ -946,7 +972,6 @@ function renderSyncStatus() {
 }
 
 function renderMatches(matches) {
-  els.matches.textContent = "";
   setCounts(matches);
   const visiblePlayerNames = new Set();
 
@@ -954,7 +979,7 @@ function renderMatches(matches) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
     empty.textContent = t("noMatches");
-    els.matches.append(empty);
+    els.matches.replaceChildren(empty);
     return;
   }
 
@@ -988,12 +1013,12 @@ function renderMatches(matches) {
     fragment.append(node);
   });
 
-  els.matches.append(fragment);
+  els.matches.replaceChildren(fragment);
   queuePlayerNameLookups([...visiblePlayerNames]);
 }
 
 function matchGoalsByTeam(match) {
-  const source = matchSummaryCache.get(match.id) || match.event || {};
+  const source = match.event || {};
   const goals = eventGoalDetails(source)
     .filter(isGoalDetail)
     .map((detail) => detailScorer(detail, source))
@@ -1069,6 +1094,7 @@ function captureUiState() {
   return {
     scrollY: window.scrollY,
     openKeys: [...detailsOpenState],
+    scorerScrolls: [...document.querySelectorAll(".scorers-scroll")].map((node) => node.scrollTop),
   };
 }
 
@@ -1079,6 +1105,9 @@ function restoreUiState(state) {
   openKeys.forEach((key) => detailsOpenState.add(key));
   document.querySelectorAll("details[data-state-key]").forEach((details) => {
     details.open = detailsOpenState.has(details.dataset.stateKey);
+  });
+  document.querySelectorAll(".scorers-scroll").forEach((node, index) => {
+    node.scrollTop = state.scorerScrolls?.[index] || 0;
   });
   const restoreScroll = () => window.scrollTo({ top: state.scrollY || 0, left: 0, behavior: "auto" });
   window.requestAnimationFrame(restoreScroll);
@@ -1149,11 +1178,10 @@ function renderSchedule() {
 
 function renderScorers() {
   if (!els.scorersGrid) return;
-  els.scorersGrid.textContent = "";
   const allCurrentScorers = collectTournamentScorers();
   const currentScorers = topPlayersWithTies(allCurrentScorers, 10);
   const historyScorers = topRanksWithTies(collectLiveHistoricalScorers(allCurrentScorers), 10);
-  els.scorersGrid.append(
+  els.scorersGrid.replaceChildren(
     createScorersCard(t("currentScorers"), currentScorers, "current"),
     createScorersCard(t("historyScorers"), historyScorers, "history"),
   );
@@ -1233,9 +1261,8 @@ function appendScorerRows(body, scorers) {
 }
 
 function collectTournamentScorers() {
-  const fromSummaries = collectScorersFromEvents(scorerEvents);
   const fromEvents = collectScorersFromEvents(tournamentEvents);
-  return mergeScorerSources(officialTournamentScorers, fromSummaries, fromEvents);
+  return mergeScorerSources(officialTournamentScorers, fromEvents);
 }
 
 function mergeScorerSources(...sources) {
@@ -1341,8 +1368,10 @@ function isGoalDetail(detail) {
     detail.shortDisplayName,
     detail.text,
   ].filter(Boolean).join(" ");
-  const hasGoalShape = detail.clock && detail.team && detail.participants?.some((item) => item.athlete?.displayName);
-  return detail.scoreValue > 0 || /\b(goal|penalty)\b/i.test(text) || detail.type?.abbreviation === "G" || hasGoalShape;
+  return detail.scoringPlay === true
+    || Number(detail.scoreValue || 0) > 0
+    || /\b(goal|penalty\s*-\s*scored)\b/i.test(text)
+    || detail.type?.abbreviation === "G";
 }
 
 function detailScorer(detail, event = null) {
@@ -1361,6 +1390,7 @@ function detailScorer(detail, event = null) {
     player,
     team: teamNames[teamCode] ? teamCode : playerTeams[player] || "",
     minute: detail.clock?.displayValue || detail.time?.displayValue || detail.period?.displayValue || "",
+    ownGoal: Boolean(detail.ownGoal),
   };
 }
 
@@ -1473,19 +1503,19 @@ function englishTeamName(abbr) {
 
 function renderStandings() {
   if (!els.standingsGrid) return;
-  els.standingsGrid.textContent = "";
   els.standingsStatus.textContent = standingsGroups.length ? `${standingsGroups.length}` : t("loading");
 
   if (!standingsGroups.length) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
     empty.textContent = t("standingsEmpty");
-    els.standingsGrid.append(empty);
+    els.standingsGrid.replaceChildren(empty);
     return;
   }
 
   const cards = standingsGroups.map((group) => createStandingsCard(group));
-  els.standingsGrid.append(...cards.slice(0, 2));
+  const fragment = document.createDocumentFragment();
+  fragment.append(...cards.slice(0, 2));
 
   if (cards.length > 2) {
     const details = document.createElement("details");
@@ -1497,8 +1527,9 @@ function renderStandings() {
     grid.className = "standings-more-grid";
     grid.append(...cards.slice(2));
     details.append(summary, grid);
-    els.standingsGrid.append(details);
+    fragment.append(details);
   }
+  els.standingsGrid.replaceChildren(fragment);
 }
 
 function createStandingsCard(group) {
@@ -1551,7 +1582,6 @@ function createStandingsCard(group) {
 
 function renderAdvancement() {
   if (!els.advancementGrid) return;
-  els.advancementGrid.textContent = "";
 
   const knockout = document.createElement("article");
   knockout.className = "advancement-card";
@@ -1576,10 +1606,11 @@ function renderAdvancement() {
     });
 
   knockout.append(knockoutHeading, knockoutList);
-  els.advancementGrid.append(knockout);
+  els.advancementGrid.replaceChildren(knockout);
 }
 
 async function loadMatches() {
+  const requestId = ++matchesRequestId;
   const selectedDate = els.date.value;
   const url = `${API_BASE}?dates=${espnDateRangeForLocalDate(selectedDate)}`;
   syncState = "loading";
@@ -1590,18 +1621,30 @@ async function loadMatches() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
+    if (requestId !== matchesRequestId || els.date.value !== selectedDate) return;
     const matches = (data.events || [])
       .filter((event) => formatDateOnly(event.date) === selectedDate)
       .map(normalizeEvent)
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     currentMatches = matches;
-    renderMatches(currentMatches);
-    await loadCurrentMatchSummaries(currentMatches, selectedDate);
+    const nextSignature = JSON.stringify(matches.map((match) => ({
+      id: match.id,
+      date: match.date,
+      status: match.status,
+      homeScore: match.home?.score,
+      awayScore: match.away?.score,
+      details: eventGoalDetails(match.event).filter(isGoalDetail),
+    })));
+    if (nextSignature !== matchesRenderSignature) {
+      matchesRenderSignature = nextSignature;
+      renderMatches(currentMatches);
+    }
     syncState = "updated";
     lastUpdatedAt = new Date();
     renderSyncStatus();
   } catch (error) {
+    if (requestId !== matchesRequestId || els.date.value !== selectedDate) return;
     currentMatches = [];
     syncState = "failed";
     setCounts([]);
@@ -1612,31 +1655,6 @@ async function loadMatches() {
     els.matches.append(empty);
     renderSyncStatus();
     console.error(error);
-  }
-}
-
-async function loadCurrentMatchSummaries(matches, selectedDate) {
-  const candidates = matches.filter((match) => {
-    const totalScore = Number(match.home?.score || 0) + Number(match.away?.score || 0);
-    const live = match.status?.type?.state === "in";
-    const done = match.status?.type?.completed;
-    return match.id && (live || done || totalScore > 0);
-  });
-
-  if (!candidates.length) return;
-
-  await Promise.all(candidates.map(async (match) => {
-    try {
-      const response = await fetch(freshUrl(`${SUMMARY_API}?event=${match.id}`), { cache: "no-store" });
-      if (!response.ok) return;
-      matchSummaryCache.set(match.id, await response.json());
-    } catch (error) {
-      console.error(error);
-    }
-  }));
-
-  if (els.date.value === selectedDate) {
-    renderMatches(currentMatches);
   }
 }
 
@@ -1655,10 +1673,39 @@ async function loadTournamentData() {
     standingsGroups = standingsData.children || [];
     tournamentEvents = (tournamentData.events || []).sort((a, b) => new Date(a.date) - new Date(b.date));
     officialTournamentScorers = statsData ? parseOfficialScorers(statsData) : [];
-    renderScorers();
-    renderStandings();
-    renderAdvancement();
-    await loadScorerSummaries(tournamentEvents);
+
+    const scorersSignature = JSON.stringify(collectTournamentScorers()
+      .map((scorer) => [scorer.player, scorer.team, scorer.goals]));
+    if (scorersSignature !== scorersRenderSignature) {
+      scorersRenderSignature = scorersSignature;
+      renderScorers();
+    }
+
+    const nextStandingsSignature = JSON.stringify(standingsGroups.map((group) => ({
+      name: group.name,
+      entries: (group.standings?.entries || []).map((entry) => ({
+        team: entry.team?.abbreviation,
+        stats: entry.stats,
+      })),
+    })));
+    if (nextStandingsSignature !== standingsRenderSignature) {
+      standingsRenderSignature = nextStandingsSignature;
+      renderStandings();
+    }
+
+    const nextAdvancementSignature = JSON.stringify(tournamentEvents
+      .filter((event) => new Date(event.date) >= new Date("2026-06-28T00:00:00Z"))
+      .slice(0, 10)
+      .map((event) => [
+        event.id,
+        event.date,
+        event.name,
+        (event.competitions?.[0]?.competitors || []).map((competitor) => competitor.team?.abbreviation || competitor.team?.displayName),
+      ]));
+    if (nextAdvancementSignature !== advancementRenderSignature) {
+      advancementRenderSignature = nextAdvancementSignature;
+      renderAdvancement();
+    }
   } catch (error) {
     els.standingsStatus.textContent = t("syncFailed");
     console.error(error);
@@ -1682,41 +1729,16 @@ function parseOfficialScorers(statsData) {
     .filter((scorer) => scorer.player && scorer.team && teamNames[scorer.team] && scorer.goals > 0));
 }
 
-async function loadScorerSummaries(events) {
-  const candidates = events.filter((event) => {
-    const competition = event.competitions?.[0] || {};
-    const completed = competition.status?.type?.completed || event.status?.type?.completed;
-    const live = competition.status?.type?.state === "in" || event.status?.type?.state === "in";
-    const score = (competition.competitors || []).reduce((sum, competitor) => sum + Number(competitor.score || 0), 0);
-    return event.id && (completed || live || score > 0);
-  });
-
-  if (!candidates.length) {
-    scorerEvents = [];
-    renderScorers();
-    return;
-  }
-
-  const summaries = await Promise.all(candidates.map(async (event) => {
-    try {
-      const response = await fetch(freshUrl(`${SUMMARY_API}?event=${event.id}`), { cache: "no-store" });
-      if (!response.ok) return matchSummaryCache.get(event.id) || event;
-      const summary = await response.json();
-      matchSummaryCache.set(event.id, summary);
-      return summary;
-    } catch (error) {
-      console.error(error);
-      return matchSummaryCache.get(event.id) || event;
-    }
-  }));
-  scorerEvents = summaries;
-  renderScorers();
-}
-
-function refreshAll() {
+async function refreshAll() {
+  if (refreshInFlight) return;
+  refreshInFlight = true;
   const state = captureUiState();
-  Promise.all([loadMatches(), loadTournamentData()])
-    .finally(() => restoreUiState(state));
+  try {
+    await Promise.all([loadMatches(), loadTournamentData()]);
+  } finally {
+    restoreUiState(state);
+    refreshInFlight = false;
+  }
 }
 
 function scheduleRefresh() {
