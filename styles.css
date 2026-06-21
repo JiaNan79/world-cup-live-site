@@ -862,6 +862,20 @@ h1 {
   max-width: 120px;
 }
 
+.standing-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.standing-team img {
+  width: 20px;
+  height: 14px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
 .standings-table tr:last-child td {
   border-bottom: 0;
 }

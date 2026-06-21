@@ -9,7 +9,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260621-2";
+const APP_VERSION = "20260621-3";
 
 const copy = {
   zh: {
@@ -897,6 +897,24 @@ function localizedTeamWithFlag(team) {
   return `${flag ? `${flag} ` : ""}${name}`;
 }
 
+function createStandingTeamLabel(team) {
+  const content = document.createElement("span");
+  content.className = "standing-team";
+  const abbr = team?.abbreviation || "";
+  if (abbr) {
+    const flag = document.createElement("img");
+    flag.src = team.logo || team.logos?.[0]?.href
+      || `https://a.espncdn.com/i/teamlogos/countries/500/${abbr.toLowerCase()}.png`;
+    flag.alt = "";
+    flag.loading = "lazy";
+    content.append(flag);
+  }
+  const name = document.createElement("span");
+  name.textContent = localizedTeamName(team);
+  content.append(name);
+  return content;
+}
+
 function renderStaticText() {
   document.documentElement.lang = t("htmlLang");
   document.title = t("title");
@@ -1562,16 +1580,28 @@ function createStandingsCard(group) {
       .forEach((entry) => {
       const row = document.createElement("tr");
       if (entry.note?.description) row.className = "advance-row";
-      row.innerHTML = `
-        <td>${statValue(entry, "rank")}</td>
-        <td>${localizedTeamWithFlag(entry.team)}</td>
-        <td>${statValue(entry, "gamesPlayed")}</td>
-        <td>${statValue(entry, "wins")}</td>
-        <td>${statValue(entry, "ties")}</td>
-        <td>${statValue(entry, "losses")}</td>
-        <td>${statValue(entry, "pointDifferential")}</td>
-        <td><strong>${statValue(entry, "points")}</strong></td>
-      `;
+      const values = [
+        statValue(entry, "rank"),
+        statValue(entry, "gamesPlayed"),
+        statValue(entry, "wins"),
+        statValue(entry, "ties"),
+        statValue(entry, "losses"),
+        statValue(entry, "pointDifferential"),
+      ];
+      const rankCell = document.createElement("td");
+      rankCell.textContent = values[0];
+      const teamCell = document.createElement("td");
+      teamCell.append(createStandingTeamLabel(entry.team));
+      const statCells = values.slice(1).map((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        return cell;
+      });
+      const pointsCell = document.createElement("td");
+      const points = document.createElement("strong");
+      points.textContent = statValue(entry, "points");
+      pointsCell.append(points);
+      row.append(rankCell, teamCell, ...statCells, pointsCell);
       body.append(row);
     });
 
