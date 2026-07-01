@@ -1114,9 +1114,9 @@ h1 {
 
 .bracket-canvas {
   position: relative;
-  width: 1376px;
-  height: 1060px;
-  min-width: 1376px;
+  width: 1320px;
+  height: 1100px;
+  min-width: 1320px;
   color: var(--ink);
 }
 
@@ -1488,9 +1488,9 @@ h1 {
   }
 
   .bracket-canvas {
-    width: 1376px;
-    min-width: 1376px;
-    height: 1060px;
+    width: 1320px;
+    min-width: 1320px;
+    height: 1100px;
   }
 
   .bracket-node {

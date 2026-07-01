@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260701-6";
+const APP_VERSION = "20260701-7";
 
 const copy = {
   zh: {
@@ -1812,22 +1812,21 @@ function renderBracketBoard() {
   nodes.className = "bracket-nodes";
   canvas.append(svg, nodes);
 
-  const topRounds = [
-    { events: round32.slice(0, 8), units: bracketPairs(8, 0.5, 2), inY: 12, outY: 96, side: "top" },
-    { events: round16.slice(0, 4), units: bracketPairs(4, 1.5, 4), inY: 142, outY: 226, side: "top" },
-    { events: quarters.slice(0, 2), units: bracketPairs(2, 3.5, 8), inY: 272, outY: 356, side: "top" },
-    { events: semis.slice(0, 1), units: [[3.5, 11.5]], inY: 402, outY: 496, outUnit: 6.5, side: "top" },
-  ];
-  const bottomRounds = [
-    { events: semis.slice(1, 2), units: [[3.5, 11.5]], inY: 588, outY: 496, outUnit: 8.5, side: "bottom" },
-    { events: quarters.slice(2, 4), units: bracketPairs(2, 3.5, 8), inY: 718, outY: 634, side: "bottom" },
-    { events: round16.slice(4, 8), units: bracketPairs(4, 1.5, 4), inY: 848, outY: 764, side: "bottom" },
-    { events: round32.slice(8, 16), units: bracketPairs(8, 0.5, 2), inY: 978, outY: 894, side: "bottom" },
-  ];
-
-  topRounds.forEach((round) => renderBracketRound(canvas, svg, nodes, round));
-  renderBracketFinal(canvas, svg, nodes, final);
-  bottomRounds.forEach((round) => renderBracketRound(canvas, svg, nodes, round));
+  renderBracketSide(svg, nodes, "top", [
+    { events: round32.slice(0, 8), y: 18, units: bracketLayerUnits(16, 0, 1) },
+    { events: round16.slice(0, 4), fallback: round32.slice(0, 8), y: 122, units: bracketLayerUnits(8, 0.5, 2) },
+    { events: quarters.slice(0, 2), fallback: round16.slice(0, 4), y: 236, units: bracketLayerUnits(4, 1.5, 4) },
+    { events: semis.slice(0, 1), fallback: quarters.slice(0, 2), y: 350, units: bracketLayerUnits(2, 3.5, 8) },
+    { events: [final], fallback: semis.slice(0, 1), y: 500, units: [6], limit: 1, nodeSide: "final" },
+  ]);
+  renderBracketFinal(svg, nodes, final);
+  renderBracketSide(svg, nodes, "bottom", [
+    { events: round32.slice(8, 16), y: 1044, units: bracketLayerUnits(16, 0, 1) },
+    { events: round16.slice(4, 8), fallback: round32.slice(8, 16), y: 940, units: bracketLayerUnits(8, 0.5, 2) },
+    { events: quarters.slice(2, 4), fallback: round16.slice(4, 8), y: 826, units: bracketLayerUnits(4, 1.5, 4) },
+    { events: semis.slice(1, 2), fallback: quarters.slice(2, 4), y: 712, units: bracketLayerUnits(2, 3.5, 8) },
+    { events: [final], fallback: semis.slice(1, 2), y: 500, units: [9], limit: 1, competitorOffset: 1, nodeSide: "final" },
+  ]);
 
   els.bracketBoard.replaceChildren(canvas);
 }
@@ -1835,52 +1834,92 @@ function renderBracketBoard() {
 function createBracketSvg() {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("class", "bracket-lines");
-  svg.setAttribute("viewBox", "0 0 1376 1060");
+  svg.setAttribute("viewBox", "0 0 1320 1100");
   svg.setAttribute("aria-hidden", "true");
   return svg;
 }
 
-function bracketPairs(count, firstCenter, step) {
-  return Array.from({ length: count }, (_, index) => {
-    const left = firstCenter + index * step - step / 4;
-    const right = firstCenter + index * step + step / 4;
-    return [left, right];
-  });
+function bracketLayerUnits(count, first, step) {
+  return Array.from({ length: count }, (_, index) => first + index * step);
 }
 
 function bracketX(unit) {
-  return 48 + unit * 85.3;
+  return 52 + unit * 81;
 }
 
-function renderBracketRound(canvas, svg, nodes, round) {
-  round.units.forEach(([leftUnit, rightUnit], index) => {
-    const event = round.events[index] || null;
-    renderBracketMatch(canvas, svg, nodes, event, leftUnit, rightUnit, round.inY, round.outY, round.side, round.outUnit);
+function renderBracketSide(svg, nodes, side, layers) {
+  const normalized = layers.map((layer, index) => ({
+    ...layer,
+    competitors: bracketLayerCompetitors(layer, index === 0 ? [] : layers[index - 1].events),
+  }));
+
+  normalized.forEach((layer) => {
+    layer.units.forEach((unit, index) => {
+      addBracketNode(nodes, layer.competitors[index], bracketX(unit), layer.y, layer.nodeSide || side, "entrant");
+    });
+  });
+
+  for (let index = 0; index < normalized.length - 1; index += 1) {
+    const from = normalized[index];
+    const to = normalized[index + 1];
+    to.units.forEach((unit, outputIndex) => {
+      const leftIndex = outputIndex * 2;
+      const rightIndex = leftIndex + 1;
+      const event = from.events[outputIndex] || null;
+      addBracketConnector(
+        svg,
+        bracketX(from.units[leftIndex]),
+        bracketX(from.units[rightIndex]),
+        bracketX(unit),
+        from.y,
+        to.y,
+        side,
+        Boolean((event?.competitions?.[0]?.status || event?.status || {}).type?.completed),
+      );
+      addBracketScore(
+        nodes,
+        bracketScoreText(event?.competitions?.[0]?.competitors || [], event),
+        (bracketX(from.units[leftIndex]) + bracketX(from.units[rightIndex])) / 2,
+        side === "top" ? from.y + 62 : from.y - 62,
+      );
+    });
+  }
+}
+
+function bracketLayerCompetitors(layer, previousEvents = []) {
+  const expected = layer.units.length;
+  const fromCurrent = flattenBracketCompetitors(layer.events, layer.limit, layer.competitorOffset || 0);
+  const fromFallback = bracketWinners(layer.fallback || previousEvents);
+  return Array.from({ length: expected }, (_, index) => {
+    const candidate = fromCurrent[index];
+    if (candidate && isResolvedTeam(candidate.team)) return candidate;
+    const fallback = fromFallback[index];
+    if (fallback && isResolvedTeam(fallback.team)) return fallback;
+    return null;
   });
 }
 
-function renderBracketMatch(canvas, svg, nodes, event, leftUnit, rightUnit, inY, outY, side, outUnit = null) {
-  const competitors = event?.competitions?.[0]?.competitors || [];
-  const completed = Boolean((event?.competitions?.[0]?.status || event?.status || {}).type?.completed);
-  const leftX = bracketX(leftUnit);
-  const rightX = bracketX(rightUnit);
-  const midX = outUnit === null ? (leftX + rightX) / 2 : bracketX(outUnit);
-
-  addBracketNode(nodes, competitors[0], leftX, inY, side, "entrant");
-  addBracketNode(nodes, competitors[1], rightX, inY, side, "entrant");
-  addBracketScore(nodes, bracketScoreText(competitors, event), (leftX + rightX) / 2, side === "top" ? inY + 38 : inY - 20);
-  addBracketConnector(svg, leftX, rightX, midX, inY, outY, side, completed);
-  addBracketNode(nodes, bracketWinner(event), midX, outY, outUnit === null ? side : "final", "winner");
+function flattenBracketCompetitors(events = [], limit = Infinity, offset = 0) {
+  return (events || [])
+    .filter(Boolean)
+    .flatMap((event) => (event.competitions?.[0]?.competitors || []).slice(offset))
+    .slice(0, limit);
 }
 
-function renderBracketFinal(canvas, svg, nodes, finalEvent) {
-  addBracketFinalLine(svg, bracketX(6.5), 548, bracketX(7.5), 548);
-  addBracketFinalLine(svg, bracketX(8.5), 548, bracketX(7.5), 548);
+function bracketWinners(events = []) {
+  return (events || []).map((event) => bracketWinner(event));
+}
+
+function renderBracketFinal(svg, nodes, finalEvent) {
+  const competitors = finalEvent?.competitions?.[0]?.competitors || [];
+  addBracketScore(nodes, bracketScoreText(competitors, finalEvent), bracketX(7.5), 472);
+  addBracketFinalLine(svg, bracketX(6), 528, bracketX(7.5), 528);
+  addBracketFinalLine(svg, bracketX(9), 528, bracketX(7.5), 528);
 
   const finalBadge = document.createElement("div");
   finalBadge.className = "bracket-final-badge";
   finalBadge.textContent = t("final");
-  placeBracketElement(finalBadge, bracketX(7.5), 548);
+  placeBracketElement(finalBadge, bracketX(7.5), 528);
   nodes.append(finalBadge);
 }
 
@@ -1893,9 +1932,9 @@ function bracketWinner(event = null) {
 
 function addBracketConnector(svg, leftX, rightX, midX, inY, outY, side, completed) {
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  const inputY = side === "top" ? inY + 52 : inY - 2;
-  const outputY = side === "top" ? outY + 2 : outY + 52;
-  const jointY = side === "top" ? (inputY + outputY) / 2 : (inputY + outputY) / 2;
+  const inputY = side === "top" ? inY + 54 : inY - 54;
+  const outputY = side === "top" ? outY - 4 : outY + 4;
+  const jointY = side === "top" ? outputY - 24 : outputY + 24;
   path.setAttribute("d", `M ${leftX} ${inputY} V ${jointY} H ${midX} V ${outputY} M ${rightX} ${inputY} V ${jointY} H ${midX}`);
   path.setAttribute("class", completed ? "bracket-path completed" : "bracket-path");
   svg.append(path);
