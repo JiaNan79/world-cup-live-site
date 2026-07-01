@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="apple-itunes-app" content="app-id=1479814602">
     <title>世界杯战报</title>
-    <link rel="stylesheet" href="styles.css?v=20260621-4">
+    <link rel="stylesheet" href="styles.css?v=20260701-1">
   </head>
   <body>
     <main class="shell">
@@ -71,6 +71,14 @@
 
       <section class="dashboard-section">
         <div class="section-heading">
+          <h2 data-i18n="advancementTitle">晋级情况</h2>
+          <span data-i18n="advancementHint">按 ESPN 当前积分榜与淘汰赛对阵更新</span>
+        </div>
+        <div id="advancementGrid" class="advancement-grid"></div>
+      </section>
+
+      <section class="dashboard-section">
+        <div class="section-heading">
           <h2 data-i18n="scorersTitle">射手榜</h2>
           <span data-i18n="scorersHint">当届比赛与世界杯历史进球排名</span>
         </div>
@@ -83,14 +91,6 @@
           <span id="standingsStatus" data-i18n="loading">正在读取比赛数据...</span>
         </div>
         <div id="standingsGrid" class="standings-grid"></div>
-      </section>
-
-      <section class="dashboard-section">
-        <div class="section-heading">
-          <h2 data-i18n="advancementTitle">晋级情况</h2>
-          <span data-i18n="advancementHint">按 ESPN 当前积分榜与淘汰赛对阵更新</span>
-        </div>
-        <div id="advancementGrid" class="advancement-grid"></div>
       </section>
 
       <footer class="site-footer">
@@ -151,6 +151,16 @@
       </div>
     </div>
 
-    <script src="app.js?v=20260621-4"></script>
+    <div id="bracketPrompt" class="bracket-prompt" hidden>
+      <div class="bracket-prompt__panel" role="dialog" aria-modal="true" aria-labelledby="bracketPromptTitle">
+        <div class="bracket-prompt__header">
+          <h2 id="bracketPromptTitle">决赛阶段</h2>
+          <button id="bracketPromptClose" class="bracket-prompt__close" type="button" aria-label="关闭">×</button>
+        </div>
+        <div id="bracketBoard" class="bracket-board"></div>
+      </div>
+    </div>
+
+    <script src="app.js?v=20260701-1"></script>
   </body>
 </html>

@@ -2,6 +2,7 @@ const API_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.worl
 const STANDINGS_API = "https://site.web.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?season=2026";
 const STATS_API = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/statistics?season=2026";
 const TOURNAMENT_API = `${API_BASE}?dates=20260611-20260720`;
+const KNOCKOUT_API = `${API_BASE}?dates=20260628-20260720`;
 const CCTV_IOS_APP_URL = "cctvvideo://open";
 const IOS_STORE_URL = "itms-apps://itunes.apple.com/cn/app/id1479814602";
 const IOS_STORE_WEB_URL = "https://apps.apple.com/cn/app/id1479814602";
@@ -9,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260621-4";
+const APP_VERSION = "20260701-1";
 
 const copy = {
   zh: {
@@ -72,6 +73,8 @@ const copy = {
     points: "分",
     qualified: "晋级区",
     knockoutTitle: "淘汰赛对阵",
+    bracketButton: "决赛阶段",
+    bracketTitle: "决赛阶段",
     pending: "待定",
     pendingMatchup: "待定 - 待定",
     groupLabel: "小组",
@@ -158,6 +161,8 @@ const copy = {
     points: "点",
     qualified: "突破圏",
     knockoutTitle: "決勝トーナメント",
+    bracketButton: "決勝トーナメント",
+    bracketTitle: "決勝トーナメント",
     pending: "未定",
     pendingMatchup: "未定 - 未定",
     groupLabel: "グループ",
@@ -244,6 +249,8 @@ const copy = {
     points: "Pts",
     qualified: "Qualified",
     knockoutTitle: "Knockout Bracket",
+    bracketButton: "Final Stage",
+    bracketTitle: "Final Stage",
     pending: "TBD",
     pendingMatchup: "TBD - TBD",
     groupLabel: "Group",
@@ -547,6 +554,12 @@ const teamFlags = {
   URU: "🇺🇾", USA: "🇺🇸", UZB: "🇺🇿", WAL: "🏴", ZAF: "🇿🇦",
 };
 
+const flagImageOverrides = {
+  ENG: "https://flagcdn.com/w80/gb-eng.png",
+  SCO: "https://flagcdn.com/w80/gb-sct.png",
+  WAL: "https://flagcdn.com/w80/gb-wls.png",
+};
+
 const historicalScorers = [
   { player: "Miroslav Klose", team: "GER", goals: 16 },
   { player: "Ronaldo", team: "BRA", goals: 15 },
@@ -620,6 +633,10 @@ const els = {
   namePrompt: document.querySelector("#namePrompt"),
   namePromptText: document.querySelector("#namePromptText"),
   namePromptClose: document.querySelector("#namePromptClose"),
+  bracketPrompt: document.querySelector("#bracketPrompt"),
+  bracketPromptTitle: document.querySelector("#bracketPromptTitle"),
+  bracketPromptClose: document.querySelector("#bracketPromptClose"),
+  bracketBoard: document.querySelector("#bracketBoard"),
   languageMenu: document.querySelector(".language-menu"),
   languageButtons: document.querySelectorAll("[data-lang]"),
   visitorBadge: document.querySelector("#visitorBadge"),
@@ -643,6 +660,7 @@ let playerNameCache = loadPlayerNameCache();
 const detailsOpenState = new Set();
 let syncState = "ready";
 let lastUpdatedAt = null;
+let translationRefreshTimer = null;
 
 if (!copy[currentLang]) currentLang = "zh";
 
@@ -844,6 +862,90 @@ function knockoutRoundLabel(value) {
   return "";
 }
 
+function knockoutRoundLabelForEvent(event) {
+  const slug = event?.season?.slug || "";
+  if (slug === "round-of-32") return t("round32Label");
+  if (slug === "round-of-16") return t("round16Label");
+  if (slug === "quarterfinals") return t("quarterfinalLabel");
+  if (slug === "semifinals") return t("semifinalLabel");
+  if (slug === "3rd-place-match") return t("thirdPlaceLabel");
+  if (slug === "final") return t("final");
+  return knockoutRoundLabel(event?.date || "");
+}
+
+function knockoutEvents() {
+  return tournamentEvents
+    .filter((event) => new Date(event.date) >= new Date("2026-06-28T00:00:00Z"))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+}
+
+function mergeEventsById(...eventLists) {
+  const map = new Map();
+  eventLists.flat().forEach((event) => {
+    if (!event?.id) return;
+    const previous = map.get(event.id);
+    if (!previous || eventHasRicherTeams(event, previous)) {
+      map.set(event.id, event);
+    }
+  });
+  return [...map.values()].sort((a, b) => new Date(a.date) - new Date(b.date));
+}
+
+function eventHasRicherTeams(next, previous) {
+  const nextTeams = next.competitions?.[0]?.competitors || [];
+  const previousTeams = previous.competitions?.[0]?.competitors || [];
+  const nextResolved = nextTeams.filter((competitor) => isResolvedTeam(competitor.team)).length;
+  const previousResolved = previousTeams.filter((competitor) => isResolvedTeam(competitor.team)).length;
+  if (nextResolved !== previousResolved) return nextResolved > previousResolved;
+  return nextTeams.length >= previousTeams.length;
+}
+
+function isResolvedTeam(team = {}) {
+  const abbr = team.abbreviation || "";
+  if (!abbr || !teamNames[abbr]) return false;
+  if (/winner|loser|semifinal|quarterfinal|round|third place/i.test(team.displayName || team.name || "")) return false;
+  return true;
+}
+
+function createKnockoutTeamChip(team, compact = false) {
+  const chip = document.createElement("span");
+  chip.className = compact ? "bracket-team compact" : "advancement-team";
+
+  if (!isResolvedTeam(team)) {
+    const icon = document.createElement("span");
+    icon.className = "pending-dot";
+    icon.textContent = "?";
+    const label = document.createElement("span");
+    label.textContent = compact ? t("pending") : localizedTeamFromText(team?.displayName || team?.name || t("pending"));
+    if (!team?.abbreviation || !teamNames[team.abbreviation]) label.textContent = t("pending");
+    chip.append(icon, label);
+    return chip;
+  }
+
+  appendTeamFlag(chip, team);
+  const name = document.createElement("span");
+  name.textContent = localizedTeamName(team);
+  chip.append(name);
+  return chip;
+}
+
+function createKnockoutTeamsNode(event) {
+  const teams = event.competitions?.[0]?.competitors || [];
+  const node = document.createElement("span");
+  node.className = "advancement-teams";
+  if (!teams.length) {
+    node.textContent = t("pendingMatchup");
+    return node;
+  }
+  node.append(createKnockoutTeamChip(teams[0]?.team || {}));
+  const dash = document.createElement("span");
+  dash.className = "match-dash";
+  dash.textContent = "-";
+  node.append(dash);
+  node.append(createKnockoutTeamChip(teams[1]?.team || {}));
+  return node;
+}
+
 function setCounts(matches) {
   els.totalCount.textContent = matches.length;
   els.liveCount.textContent = matches.filter((match) => match.status?.type?.state === "in").length;
@@ -853,7 +955,7 @@ function setCounts(matches) {
 function renderTeam(root, competitor, goals = []) {
   const team = competitor?.team || {};
   const name = localizedTeamName(team);
-  root.querySelector("img").src = team.logo || "";
+  root.querySelector("img").src = teamLogoUrl(team);
   root.querySelector("img").alt = name ? `${name} ${t("crest")}` : "";
   root.querySelector(".name").textContent = name || t("tba");
   root.querySelector(".abbr").textContent = "";
@@ -890,6 +992,28 @@ function localizedTeamName(team) {
   return teamNames[abbr]?.[currentLang] || localizedTeamFromText(team.displayName || abbr);
 }
 
+function teamLogoUrl(teamOrAbbr) {
+  const abbr = typeof teamOrAbbr === "string" ? teamOrAbbr : teamOrAbbr?.abbreviation;
+  if (abbr && flagImageOverrides[abbr]) return flagImageOverrides[abbr];
+  if (typeof teamOrAbbr !== "string") {
+    const logo = teamOrAbbr?.logo || teamOrAbbr?.logos?.find?.((item) => item.rel?.includes("default"))?.href || teamOrAbbr?.logos?.[0]?.href;
+    if (logo) return logo;
+  }
+  return abbr ? `https://a.espncdn.com/i/teamlogos/countries/500/${abbr.toLowerCase()}.png` : "";
+}
+
+function appendTeamFlag(root, teamOrAbbr, className = "") {
+  const src = teamLogoUrl(teamOrAbbr);
+  if (!src) return null;
+  const flag = document.createElement("img");
+  flag.src = src;
+  flag.alt = "";
+  flag.loading = "lazy";
+  if (className) flag.className = className;
+  root.append(flag);
+  return flag;
+}
+
 function localizedTeamWithFlag(team) {
   const name = localizedTeamName(team);
   const abbr = typeof team === "string" ? team : team?.abbreviation;
@@ -901,14 +1025,7 @@ function createStandingTeamLabel(team) {
   const content = document.createElement("span");
   content.className = "standing-team";
   const abbr = team?.abbreviation || "";
-  if (abbr) {
-    const flag = document.createElement("img");
-    flag.src = team.logo || team.logos?.[0]?.href
-      || `https://a.espncdn.com/i/teamlogos/countries/500/${abbr.toLowerCase()}.png`;
-    flag.alt = "";
-    flag.loading = "lazy";
-    content.append(flag);
-  }
+  if (abbr) appendTeamFlag(content, team);
   const name = document.createElement("span");
   name.textContent = localizedTeamName(team);
   content.append(name);
@@ -936,6 +1053,7 @@ function renderStaticText() {
   });
   els.date.max = FINAL_DATE_LOCAL;
   els.finalBadge.textContent = t("finalBadge");
+  if (els.bracketPromptTitle) els.bracketPromptTitle.textContent = t("bracketTitle");
   renderDateDisplay();
 
   renderSyncStatus();
@@ -1259,11 +1377,7 @@ function appendScorerRows(body, scorers) {
     const teamContent = document.createElement("span");
     teamContent.className = "scorer-team";
     if (typeof scorer.team === "string" && teamNames[scorer.team]) {
-      const flag = document.createElement("img");
-      flag.src = `https://a.espncdn.com/i/teamlogos/countries/500/${scorer.team.toLowerCase()}.png`;
-      flag.alt = "";
-      flag.loading = "lazy";
-      teamContent.append(flag);
+      appendTeamFlag(teamContent, scorer.team);
     }
     const teamName = document.createElement("span");
     teamName.textContent = localizedScorerTeamName(scorer.team);
@@ -1463,13 +1577,22 @@ function queuePlayerNameLookups(names) {
       });
       if (!changed) return;
       savePlayerNameCache();
-      renderScorers();
-      renderMatches(currentMatches);
+      scheduleLocalizedDataRefresh();
     })
     .catch((error) => {
       targets.forEach((name) => pendingPlayerNameLookups.delete(`${lookupLang}:${name}`));
       console.error(error);
     });
+}
+
+function scheduleLocalizedDataRefresh() {
+  if (translationRefreshTimer) clearTimeout(translationRefreshTimer);
+  translationRefreshTimer = window.setTimeout(() => {
+    translationRefreshTimer = null;
+    renderScorers();
+    renderMatches(currentMatches);
+    renderAdvancement();
+  }, 900);
 }
 
 async function fetchPlayerTranslation(name) {
@@ -1607,30 +1730,98 @@ function createStandingsCard(group) {
 function renderAdvancement() {
   if (!els.advancementGrid) return;
 
+  const events = knockoutEvents();
   const knockout = document.createElement("article");
   knockout.className = "advancement-card";
+  const header = document.createElement("div");
+  header.className = "advancement-card__header";
   const knockoutHeading = document.createElement("h3");
   knockoutHeading.textContent = t("knockoutTitle");
+  const bracketButton = document.createElement("button");
+  bracketButton.className = "bracket-button";
+  bracketButton.type = "button";
+  bracketButton.textContent = t("bracketButton");
+  bracketButton.addEventListener("click", showBracketPrompt);
+  header.append(knockoutHeading, bracketButton);
   const knockoutList = document.createElement("div");
   knockoutList.className = "advancement-list";
 
-  tournamentEvents
-    .filter((event) => new Date(event.date) >= new Date("2026-06-28T00:00:00Z"))
-    .slice(0, 10)
-    .forEach((event) => {
-      const item = document.createElement("div");
-      item.className = "advancement-item";
-      const label = document.createElement("strong");
-      const round = knockoutRoundLabel(event.date);
-      label.textContent = round ? `${formatScheduleTime(event.date)} · ${round}` : formatScheduleTime(event.date);
-      const value = document.createElement("span");
-      value.textContent = knockoutTeamsText(event);
-      item.append(label, value);
-      knockoutList.append(item);
-    });
+  if (!events.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state compact";
+    empty.textContent = t("scheduleEmpty");
+    knockoutList.append(empty);
+  }
 
-  knockout.append(knockoutHeading, knockoutList);
+  events.forEach((event) => {
+    const item = document.createElement("div");
+    item.className = "advancement-item";
+    const label = document.createElement("strong");
+    const round = knockoutRoundLabelForEvent(event);
+    label.textContent = round ? `${formatScheduleTime(event.date)} · ${round}` : formatScheduleTime(event.date);
+    item.append(label, createKnockoutTeamsNode(event));
+    knockoutList.append(item);
+  });
+
+  knockout.append(header, knockoutList);
   els.advancementGrid.replaceChildren(knockout);
+  if (!els.bracketPrompt.hidden) renderBracketBoard();
+}
+
+function showBracketPrompt() {
+  renderBracketBoard();
+  els.bracketPromptTitle.textContent = t("bracketTitle");
+  els.bracketPrompt.hidden = false;
+}
+
+function hideBracketPrompt() {
+  els.bracketPrompt.hidden = true;
+}
+
+function renderBracketBoard() {
+  if (!els.bracketBoard) return;
+  const rounds = [
+    { key: "round32", label: t("round32Label"), slugs: ["round-of-32"] },
+    { key: "round16", label: t("round16Label"), slugs: ["round-of-16"] },
+    { key: "quarter", label: t("quarterfinalLabel"), slugs: ["quarterfinals"] },
+    { key: "semi", label: t("semifinalLabel"), slugs: ["semifinals"] },
+    { key: "final", label: t("final"), slugs: ["3rd-place-match", "final"] },
+  ];
+  const events = knockoutEvents();
+  const board = document.createElement("div");
+  board.className = "bracket-rounds";
+
+  rounds.forEach((round) => {
+    const column = document.createElement("section");
+    column.className = `bracket-round ${round.key}`;
+    const heading = document.createElement("h3");
+    heading.textContent = round.label;
+    column.append(heading);
+    const roundEvents = events.filter((event) => round.slugs.includes(event.season?.slug || ""));
+    roundEvents.forEach((event) => column.append(createBracketMatch(event)));
+    if (!roundEvents.length) {
+      const pending = document.createElement("div");
+      pending.className = "bracket-match empty";
+      pending.textContent = t("pending");
+      column.append(pending);
+    }
+    board.append(column);
+  });
+
+  els.bracketBoard.replaceChildren(board);
+}
+
+function createBracketMatch(event) {
+  const match = document.createElement("article");
+  match.className = "bracket-match";
+  const meta = document.createElement("div");
+  meta.className = "bracket-match__meta";
+  meta.textContent = formatScheduleTime(event.date);
+  const competitors = event.competitions?.[0]?.competitors || [];
+  match.append(meta);
+  match.append(createKnockoutTeamChip(competitors[0]?.team || {}, true));
+  match.append(createKnockoutTeamChip(competitors[1]?.team || {}, true));
+  return match;
 }
 
 async function loadMatches() {
@@ -1684,18 +1875,20 @@ async function loadMatches() {
 
 async function loadTournamentData() {
   try {
-    const [standingsResponse, tournamentResponse, statsResponse] = await Promise.all([
+    const [standingsResponse, tournamentResponse, knockoutResponse, statsResponse] = await Promise.all([
       fetch(freshUrl(STANDINGS_API), { cache: "no-store" }),
       fetch(freshUrl(TOURNAMENT_API), { cache: "no-store" }),
+      fetch(freshUrl(KNOCKOUT_API), { cache: "no-store" }),
       fetch(freshUrl(STATS_API), { cache: "no-store" }).catch(() => null),
     ]);
-    if (!standingsResponse.ok || !tournamentResponse.ok) throw new Error("Tournament data failed");
+    if (!standingsResponse.ok || !tournamentResponse.ok || !knockoutResponse.ok) throw new Error("Tournament data failed");
 
     const standingsData = await standingsResponse.json();
     const tournamentData = await tournamentResponse.json();
+    const knockoutData = await knockoutResponse.json();
     const statsData = statsResponse?.ok ? await statsResponse.json() : null;
     standingsGroups = standingsData.children || [];
-    tournamentEvents = (tournamentData.events || []).sort((a, b) => new Date(a.date) - new Date(b.date));
+    tournamentEvents = mergeEventsById(tournamentData.events || [], knockoutData.events || []);
     officialTournamentScorers = statsData ? parseOfficialScorers(statsData) : [];
 
     const scorersSignature = JSON.stringify(collectTournamentScorers()
@@ -1717,14 +1910,18 @@ async function loadTournamentData() {
       renderStandings();
     }
 
-    const nextAdvancementSignature = JSON.stringify(tournamentEvents
-      .filter((event) => new Date(event.date) >= new Date("2026-06-28T00:00:00Z"))
-      .slice(0, 10)
+    const nextAdvancementSignature = JSON.stringify(knockoutEvents()
       .map((event) => [
         event.id,
         event.date,
+        event.competitions?.[0]?.status || event.status,
         event.name,
-        (event.competitions?.[0]?.competitors || []).map((competitor) => competitor.team?.abbreviation || competitor.team?.displayName),
+        (event.competitions?.[0]?.competitors || []).map((competitor) => [
+          competitor.team?.abbreviation || "",
+          competitor.team?.displayName || competitor.team?.name || "",
+          competitor.score || "",
+          Boolean(competitor.winner),
+        ]),
       ]));
     if (nextAdvancementSignature !== advancementRenderSignature) {
       advancementRenderSignature = nextAdvancementSignature;
@@ -1795,11 +1992,15 @@ els.today.addEventListener("click", () => {
 });
 els.appPromptClose.addEventListener("click", hideAppPrompt);
 els.namePromptClose.addEventListener("click", hideNamePrompt);
+els.bracketPromptClose.addEventListener("click", hideBracketPrompt);
 els.appPrompt.addEventListener("click", (event) => {
   if (event.target === els.appPrompt) hideAppPrompt();
 });
 els.namePrompt.addEventListener("click", (event) => {
   if (event.target === els.namePrompt) hideNamePrompt();
+});
+els.bracketPrompt.addEventListener("click", (event) => {
+  if (event.target === els.bracketPrompt) hideBracketPrompt();
 });
 document.addEventListener("pointerdown", (event) => {
   if (!els.languageMenu.open) return;
@@ -1809,6 +2010,7 @@ document.addEventListener("pointerdown", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !els.appPrompt.hidden) hideAppPrompt();
   if (event.key === "Escape" && !els.namePrompt.hidden) hideNamePrompt();
+  if (event.key === "Escape" && !els.bracketPrompt.hidden) hideBracketPrompt();
   if (event.key === "Escape" && els.languageMenu.open) els.languageMenu.open = false;
 });
 els.languageButtons.forEach((button) => {
