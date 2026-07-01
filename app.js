@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260701-2";
+const APP_VERSION = "20260701-3";
 
 const copy = {
   zh: {
@@ -929,35 +929,6 @@ function createKnockoutTeamChip(team, compact = false) {
   return chip;
 }
 
-function createBracketTeamSlot(competitor = {}) {
-  const team = competitor.team || {};
-  const slot = document.createElement("div");
-  slot.className = "bracket-slot";
-  if (competitor.winner) slot.classList.add("winner");
-
-  const teamWrap = document.createElement("span");
-  teamWrap.className = "bracket-slot__team";
-  if (isResolvedTeam(team)) {
-    appendTeamFlag(teamWrap, team);
-    const name = document.createElement("span");
-    name.textContent = localizedTeamName(team);
-    teamWrap.append(name);
-  } else {
-    const icon = document.createElement("span");
-    icon.className = "pending-dot";
-    icon.textContent = "?";
-    const name = document.createElement("span");
-    name.textContent = t("pending");
-    teamWrap.append(icon, name);
-  }
-
-  const score = document.createElement("strong");
-  score.className = "bracket-slot__score";
-  score.textContent = competitor.score ?? "";
-  slot.append(teamWrap, score);
-  return slot;
-}
-
 function createKnockoutTeamsNode(event) {
   const teams = event.competitions?.[0]?.competitors || [];
   const node = document.createElement("span");
@@ -1257,7 +1228,6 @@ function hideNamePrompt() {
 function captureUiState() {
   rememberDetailsState();
   return {
-    scrollY: window.scrollY,
     openKeys: [...detailsOpenState],
     scorerScrolls: [...document.querySelectorAll(".scorers-scroll")].map((node) => node.scrollTop),
     advancementScroll: document.querySelector(".advancement-list")?.scrollTop || 0,
@@ -1286,9 +1256,6 @@ function restoreUiState(state) {
     bracketBoard.scrollTop = state.bracketScroll?.top || 0;
     bracketBoard.scrollLeft = state.bracketScroll?.left || 0;
   }
-  const restoreScroll = () => window.scrollTo({ top: state.scrollY || 0, left: 0, behavior: "auto" });
-  window.requestAnimationFrame(restoreScroll);
-  window.setTimeout(restoreScroll, 250);
 }
 
 function rememberDetailsState() {
@@ -1886,22 +1853,67 @@ function createBracketFinalRow(finalEvent, thirdEvent) {
 
 function createPendingBracketMatch() {
   const match = document.createElement("article");
-  match.className = "bracket-match empty";
-  match.append(createBracketTeamSlot({}), createBracketTeamSlot({}));
+  match.className = "bracket-pair empty";
+  const main = document.createElement("div");
+  main.className = "bracket-pair-main";
+  main.append(createBracketTeamNode({}), createBracketScorePill(t("pending")), createBracketTeamNode({}));
+  match.append(main);
   return match;
 }
 
 function createBracketMatch(event) {
   const match = document.createElement("article");
-  match.className = "bracket-match";
+  match.className = "bracket-pair";
   const meta = document.createElement("div");
-  meta.className = "bracket-match__meta";
+  meta.className = "bracket-pair__meta";
   meta.textContent = formatScheduleTime(event.date);
   const competitors = event.competitions?.[0]?.competitors || [];
-  match.append(meta);
-  match.append(createBracketTeamSlot(competitors[0] || {}));
-  match.append(createBracketTeamSlot(competitors[1] || {}));
+  const main = document.createElement("div");
+  main.className = "bracket-pair-main";
+  main.append(
+    createBracketTeamNode(competitors[0] || {}),
+    createBracketScorePill(bracketScoreText(competitors)),
+    createBracketTeamNode(competitors[1] || {}),
+  );
+  match.append(meta, main);
   return match;
+}
+
+function createBracketTeamNode(competitor = {}) {
+  const team = competitor.team || {};
+  const node = document.createElement("div");
+  node.className = "bracket-node";
+  if (competitor.winner) node.classList.add("winner");
+
+  if (isResolvedTeam(team)) {
+    appendTeamFlag(node, team);
+    const name = document.createElement("span");
+    name.textContent = localizedTeamName(team);
+    node.append(name);
+  } else {
+    const icon = document.createElement("span");
+    icon.className = "pending-dot";
+    icon.textContent = "?";
+    const name = document.createElement("span");
+    name.textContent = t("pending");
+    node.append(icon, name);
+  }
+
+  return node;
+}
+
+function createBracketScorePill(text) {
+  const pill = document.createElement("strong");
+  pill.className = "bracket-score-pill";
+  pill.textContent = text;
+  return pill;
+}
+
+function bracketScoreText(competitors = []) {
+  const home = competitors[0]?.score;
+  const away = competitors[1]?.score;
+  if (home !== undefined && home !== "" && away !== undefined && away !== "") return `${home}:${away}`;
+  return "vs";
 }
 
 async function loadMatches() {
