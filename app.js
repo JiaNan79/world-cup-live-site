@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260701-3";
+const APP_VERSION = "20260701-4";
 
 const copy = {
   zh: {
@@ -73,8 +73,8 @@ const copy = {
     points: "分",
     qualified: "晋级区",
     knockoutTitle: "淘汰赛对阵",
-    bracketButton: "决赛阶段",
-    bracketTitle: "决赛阶段",
+    bracketButton: "对阵图",
+    bracketTitle: "对阵图",
     pending: "待定",
     pendingMatchup: "待定 - 待定",
     groupLabel: "小组",
@@ -161,8 +161,8 @@ const copy = {
     points: "点",
     qualified: "突破圏",
     knockoutTitle: "決勝トーナメント",
-    bracketButton: "決勝トーナメント",
-    bracketTitle: "決勝トーナメント",
+    bracketButton: "トーナメント表",
+    bracketTitle: "トーナメント表",
     pending: "未定",
     pendingMatchup: "未定 - 未定",
     groupLabel: "グループ",
@@ -249,8 +249,8 @@ const copy = {
     points: "Pts",
     qualified: "Qualified",
     knockoutTitle: "Knockout Bracket",
-    bracketButton: "Final Stage",
-    bracketTitle: "Final Stage",
+    bracketButton: "Bracket",
+    bracketTitle: "Bracket",
     pending: "TBD",
     pendingMatchup: "TBD - TBD",
     groupLabel: "Group",
@@ -1797,7 +1797,9 @@ function hideBracketPrompt() {
 function renderBracketBoard() {
   if (!els.bracketBoard) return;
   const events = knockoutEvents();
-  const bySlug = (slug) => events.filter((event) => event.season?.slug === slug);
+  const bySlug = (slug) => events
+    .filter((event) => event.season?.slug === slug)
+    .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
   const round32 = bySlug("round-of-32");
   const round16 = bySlug("round-of-16");
   const quarters = bySlug("quarterfinals");
@@ -1808,30 +1810,28 @@ function renderBracketBoard() {
   tree.className = "bracket-tree";
 
   tree.append(
-    createBracketTreeRow(t("round32Label"), round32.slice(0, 8), "wide"),
-    createBracketTreeRow(t("round16Label"), round16.slice(0, 4), "medium"),
-    createBracketTreeRow(t("quarterfinalLabel"), quarters.slice(0, 2), "narrow"),
-    createBracketTreeRow(t("semifinalLabel"), semis.slice(0, 1), "single"),
+    createBracketTreeRow(round32.slice(0, 8), "wide"),
+    createBracketTreeRow(round16.slice(0, 4), "medium"),
+    createBracketTreeRow(quarters.slice(0, 2), "narrow"),
+    createBracketTreeRow(semis.slice(0, 1), "single"),
     createBracketFinalRow(final, third),
-    createBracketTreeRow(t("semifinalLabel"), semis.slice(1, 2), "single"),
-    createBracketTreeRow(t("quarterfinalLabel"), quarters.slice(2, 4), "narrow"),
-    createBracketTreeRow(t("round16Label"), round16.slice(4, 8), "medium"),
-    createBracketTreeRow(t("round32Label"), round32.slice(8, 16), "wide"),
+    createBracketTreeRow(semis.slice(1, 2), "single"),
+    createBracketTreeRow(quarters.slice(2, 4), "narrow"),
+    createBracketTreeRow(round16.slice(4, 8), "medium"),
+    createBracketTreeRow(round32.slice(8, 16), "wide"),
   );
 
   els.bracketBoard.replaceChildren(tree);
 }
 
-function createBracketTreeRow(label, events, density) {
+function createBracketTreeRow(events, density) {
   const row = document.createElement("section");
   row.className = `bracket-tree-row ${density}`;
-  const heading = document.createElement("h3");
-  heading.textContent = label;
   const matches = document.createElement("div");
   matches.className = "bracket-tree-matches";
   events.forEach((event) => matches.append(createBracketMatch(event)));
   if (!events.length) matches.append(createPendingBracketMatch());
-  row.append(heading, matches);
+  row.append(matches);
   return row;
 }
 
@@ -1857,16 +1857,13 @@ function createPendingBracketMatch() {
   const main = document.createElement("div");
   main.className = "bracket-pair-main";
   main.append(createBracketTeamNode({}), createBracketScorePill(t("pending")), createBracketTeamNode({}));
-  match.append(main);
+  match.append(main, createBracketWinnerNode());
   return match;
 }
 
 function createBracketMatch(event) {
   const match = document.createElement("article");
   match.className = "bracket-pair";
-  const meta = document.createElement("div");
-  meta.className = "bracket-pair__meta";
-  meta.textContent = formatScheduleTime(event.date);
   const competitors = event.competitions?.[0]?.competitors || [];
   const main = document.createElement("div");
   main.className = "bracket-pair-main";
@@ -1875,7 +1872,7 @@ function createBracketMatch(event) {
     createBracketScorePill(bracketScoreText(competitors)),
     createBracketTeamNode(competitors[1] || {}),
   );
-  match.append(meta, main);
+  match.append(main, createBracketWinnerNode(event));
   return match;
 }
 
@@ -1907,6 +1904,20 @@ function createBracketScorePill(text) {
   pill.className = "bracket-score-pill";
   pill.textContent = text;
   return pill;
+}
+
+function createBracketWinnerNode(event = null) {
+  const competitors = event?.competitions?.[0]?.competitors || [];
+  const status = event?.competitions?.[0]?.status || event?.status || {};
+  const winner = competitors.find((competitor) => competitor.winner);
+  const node = document.createElement("div");
+  node.className = "bracket-winner";
+  if (winner && status.type?.completed) {
+    node.append(createBracketTeamNode(winner));
+  } else {
+    node.append(createBracketTeamNode({}));
+  }
+  return node;
 }
 
 function bracketScoreText(competitors = []) {
