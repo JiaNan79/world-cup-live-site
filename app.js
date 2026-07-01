@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260701-7";
+const APP_VERSION = "20260701-8";
 
 const copy = {
   zh: {
@@ -1891,10 +1891,10 @@ function bracketLayerCompetitors(layer, previousEvents = []) {
   const fromCurrent = flattenBracketCompetitors(layer.events, layer.limit, layer.competitorOffset || 0);
   const fromFallback = bracketWinners(layer.fallback || previousEvents);
   return Array.from({ length: expected }, (_, index) => {
-    const candidate = fromCurrent[index];
-    if (candidate && isResolvedTeam(candidate.team)) return candidate;
     const fallback = fromFallback[index];
     if (fallback && isResolvedTeam(fallback.team)) return fallback;
+    const candidate = fromCurrent[index];
+    if (candidate && isResolvedTeam(candidate.team)) return candidate;
     return null;
   });
 }
