@@ -7,10 +7,11 @@ const CCTV_IOS_APP_URL = "cctvvideo://open";
 const IOS_STORE_URL = "itms-apps://itunes.apple.com/cn/app/id1479814602";
 const IOS_STORE_WEB_URL = "https://apps.apple.com/cn/app/id1479814602";
 const REFRESH_MS = 60_000;
+const SCROLL_IDLE_MS = 1200;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260702-4";
+const APP_VERSION = "20260702-5";
 
 const copy = {
   zh: {
@@ -651,6 +652,10 @@ const detailsOpenState = new Set();
 let syncState = "ready";
 let lastUpdatedAt = null;
 let translationRefreshTimer = null;
+let lastScrollableInteractionAt = 0;
+let deferredScorersRender = false;
+let deferredAdvancementRender = false;
+let deferredScrollableRenderTimer = null;
 
 if (!copy[currentLang]) currentLang = "zh";
 
@@ -1094,9 +1099,9 @@ function renderStaticText() {
   renderVisitorBadge();
   renderAppPromptText();
   renderSchedule();
-  renderScorers();
+  requestScorersRender();
   renderStandings();
-  renderAdvancement();
+  requestAdvancementRender();
 }
 
 function renderDateDisplay() {
@@ -1262,6 +1267,7 @@ function hideNamePrompt() {
 function captureUiState() {
   rememberDetailsState();
   return {
+    capturedAt: Date.now(),
     openKeys: [...detailsOpenState],
     scorerScrolls: [...document.querySelectorAll(".scorers-scroll")].map((node) => node.scrollTop),
     advancementScroll: document.querySelector(".advancement-list")?.scrollTop || 0,
@@ -1276,11 +1282,13 @@ function restoreUiState(state) {
   document.querySelectorAll("details[data-state-key]").forEach((details) => {
     details.open = detailsOpenState.has(details.dataset.stateKey);
   });
-  document.querySelectorAll(".scorers-scroll").forEach((node, index) => {
-    node.scrollTop = state.scorerScrolls?.[index] || 0;
-  });
-  const advancementList = document.querySelector(".advancement-list");
-  if (advancementList) advancementList.scrollTop = state.advancementScroll || 0;
+  if (lastScrollableInteractionAt <= (state.capturedAt || 0)) {
+    document.querySelectorAll(".scorers-scroll").forEach((node, index) => {
+      node.scrollTop = state.scorerScrolls?.[index] || 0;
+    });
+    const advancementList = document.querySelector(".advancement-list");
+    if (advancementList) advancementList.scrollTop = state.advancementScroll || 0;
+  }
 }
 
 function rememberDetailsState() {
@@ -1359,6 +1367,54 @@ function renderScorers() {
     node.scrollTop = previousScrolls[index] || 0;
   });
   queuePlayerNameLookups([...currentScorers, ...historyScorers].map((scorer) => scorer.player));
+}
+
+function requestScorersRender() {
+  if (isScrollableInteractionActive()) {
+    deferredScorersRender = true;
+    scheduleDeferredScrollableRender();
+    return;
+  }
+  renderScorers();
+}
+
+function requestAdvancementRender() {
+  if (isScrollableInteractionActive()) {
+    deferredAdvancementRender = true;
+    scheduleDeferredScrollableRender();
+    return;
+  }
+  renderAdvancement();
+}
+
+function isScrollableInteractionActive() {
+  return Date.now() - lastScrollableInteractionAt < SCROLL_IDLE_MS;
+}
+
+function markScrollableInteraction(event) {
+  if (!event.target?.closest?.(".scorers-scroll, .advancement-list")) return;
+  lastScrollableInteractionAt = Date.now();
+  if (deferredScorersRender || deferredAdvancementRender) scheduleDeferredScrollableRender();
+}
+
+function scheduleDeferredScrollableRender() {
+  if (deferredScrollableRenderTimer) clearTimeout(deferredScrollableRenderTimer);
+  const wait = Math.max(80, SCROLL_IDLE_MS - (Date.now() - lastScrollableInteractionAt));
+  deferredScrollableRenderTimer = window.setTimeout(flushDeferredScrollableRender, wait);
+}
+
+function flushDeferredScrollableRender() {
+  deferredScrollableRenderTimer = null;
+  if (isScrollableInteractionActive()) {
+    scheduleDeferredScrollableRender();
+    return;
+  }
+  const shouldRenderScorers = deferredScorersRender;
+  const shouldRenderAdvancement = deferredAdvancementRender;
+  deferredScorersRender = false;
+  deferredAdvancementRender = false;
+  if (shouldRenderScorers) renderScorers();
+  if (shouldRenderAdvancement) renderAdvancement();
 }
 
 function createScorersCard(title, scorers) {
@@ -1627,7 +1683,7 @@ function scheduleLocalizedDataRefresh() {
   translationRefreshTimer = window.setTimeout(() => {
     translationRefreshTimer = null;
     const state = captureUiState();
-    renderScorers();
+    requestScorersRender();
     renderMatches(currentMatches);
     restoreUiState(state);
   }, 900);
@@ -1875,7 +1931,7 @@ async function loadTournamentData() {
       .map((scorer) => [scorer.player, scorer.team, scorer.goals]));
     if (scorersSignature !== scorersRenderSignature) {
       scorersRenderSignature = scorersSignature;
-      renderScorers();
+      requestScorersRender();
     }
 
     const nextStandingsSignature = JSON.stringify(standingsGroups.map((group) => ({
@@ -1905,7 +1961,7 @@ async function loadTournamentData() {
       ]));
     if (nextAdvancementSignature !== advancementRenderSignature) {
       advancementRenderSignature = nextAdvancementSignature;
-      renderAdvancement();
+      requestAdvancementRender();
     }
   } catch (error) {
     els.standingsStatus.textContent = t("syncFailed");
@@ -1983,6 +2039,9 @@ document.addEventListener("pointerdown", (event) => {
   if (els.languageMenu.contains(event.target)) return;
   els.languageMenu.open = false;
 });
+document.addEventListener("scroll", markScrollableInteraction, { passive: true, capture: true });
+document.addEventListener("touchmove", markScrollableInteraction, { passive: true });
+document.addEventListener("wheel", markScrollableInteraction, { passive: true });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !els.appPrompt.hidden) hideAppPrompt();
   if (event.key === "Escape" && !els.namePrompt.hidden) hideNamePrompt();
