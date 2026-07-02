@@ -11,7 +11,7 @@ const SCROLL_IDLE_MS = 1200;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260702-5";
+const APP_VERSION = "20260702-6";
 
 const copy = {
   zh: {
@@ -1006,15 +1006,16 @@ function renderTeam(root, competitor, goals = []) {
     const name = document.createElement("span");
     const playerName = localizedPlayerName(goal.player);
     name.className = "goal-name";
+    name.dataset.player = goal.player;
     name.setAttribute("role", "button");
     name.tabIndex = 0;
     name.textContent = playerName;
     name.title = playerName;
-    name.addEventListener("click", () => showNamePrompt(playerName));
+    name.addEventListener("click", () => showNamePrompt(localizedPlayerName(goal.player)));
     name.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        showNamePrompt(playerName);
+        showNamePrompt(localizedPlayerName(goal.player));
       }
     });
     const minute = document.createElement("span");
@@ -1162,6 +1163,7 @@ function renderMatches(matches) {
 
   matches.forEach((match) => {
     const node = els.template.content.firstElementChild.cloneNode(true);
+    node.dataset.matchId = match.id;
     const status = node.querySelector(".status-pill");
     const homeScore = match.home?.score ?? "0";
     const awayScore = match.away?.score ?? "0";
@@ -1190,6 +1192,33 @@ function renderMatches(matches) {
 
   els.matches.replaceChildren(fragment);
   queuePlayerNameLookups([...visiblePlayerNames]);
+}
+
+function updateRenderedMatchStatuses(matches) {
+  setCounts(matches);
+  matches.forEach((match) => {
+    const node = [...els.matches.querySelectorAll("[data-match-id]")]
+      .find((card) => card.dataset.matchId === String(match.id));
+    if (!node) return;
+    const status = node.querySelector(".status-pill");
+    const stateClass = statusClass(match.status);
+    status.className = "status-pill";
+    if (stateClass) status.classList.add(stateClass);
+    status.textContent = statusLabel(match.status);
+    node.querySelector(".time-text").textContent = `${formatTime(match.date)} · ${localizedCompetitionNote(match.note)}`;
+  });
+}
+
+function goalDetailSignature(detail) {
+  const athlete = detail.athlete || detail.athletes?.[0] || detail.athletesInvolved?.[0] || detail.participants?.[0]?.athlete || {};
+  const team = detail.team || detail.participants?.[0]?.team || {};
+  return [
+    canonicalPlayerName(athlete.displayName || athlete.shortName || athlete.fullName || detail.athleteName || detail.scorer || ""),
+    team.abbreviation || team.id || team.displayName || "",
+    detail.clock?.displayValue || detail.time?.displayValue || detail.period?.displayValue || "",
+    detail.scoreValue || 1,
+    Boolean(detail.ownGoal),
+  ];
 }
 
 function matchGoalsByTeam(match) {
@@ -1464,6 +1493,8 @@ function appendScorerRows(body, scorers) {
     rankCell.textContent = scorer.rank;
     const playerCell = document.createElement("td");
     const playerName = document.createElement("strong");
+    playerName.className = "player-name";
+    playerName.dataset.player = scorer.player;
     playerName.textContent = localizedPlayerName(scorer.player);
     playerCell.append(playerName);
     const teamCell = document.createElement("td");
@@ -1682,11 +1713,17 @@ function scheduleLocalizedDataRefresh() {
   if (translationRefreshTimer) clearTimeout(translationRefreshTimer);
   translationRefreshTimer = window.setTimeout(() => {
     translationRefreshTimer = null;
-    const state = captureUiState();
-    requestScorersRender();
-    renderMatches(currentMatches);
-    restoreUiState(state);
+    updateLocalizedPlayerLabels();
   }, 900);
+}
+
+function updateLocalizedPlayerLabels() {
+  document.querySelectorAll("[data-player]").forEach((node) => {
+    const player = node.dataset.player;
+    const localized = localizedPlayerName(player);
+    node.textContent = localized;
+    node.title = localized;
+  });
 }
 
 async function fetchPlayerTranslation(name) {
@@ -1879,17 +1916,21 @@ async function loadMatches() {
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     currentMatches = matches;
+    setCounts(matches);
     const nextSignature = JSON.stringify(matches.map((match) => ({
       id: match.id,
       date: match.date,
-      status: match.status,
+      statusState: match.status?.type?.state || "",
+      statusCompleted: Boolean(match.status?.type?.completed),
       homeScore: match.home?.score,
       awayScore: match.away?.score,
-      details: eventGoalDetails(match.event).filter(isGoalDetail),
+      goals: eventGoalDetails(match.event).filter(isGoalDetail).map(goalDetailSignature),
     })));
     if (nextSignature !== matchesRenderSignature) {
       matchesRenderSignature = nextSignature;
       renderMatches(currentMatches);
+    } else {
+      updateRenderedMatchStatuses(currentMatches);
     }
     syncState = "updated";
     lastUpdatedAt = new Date();
