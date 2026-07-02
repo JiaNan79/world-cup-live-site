@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260701-10";
+const APP_VERSION = "20260702-3";
 
 const copy = {
   zh: {
@@ -1817,7 +1817,7 @@ function renderBracketBoard() {
     { events: round16.slice(0, 4), fallback: round32.slice(0, 8), y: 122, units: bracketLayerUnits(8, 0.5, 2) },
     { events: quarters.slice(0, 2), fallback: round16.slice(0, 4), y: 236, units: bracketLayerUnits(4, 1.5, 4) },
     { events: semis.slice(0, 1), fallback: quarters.slice(0, 2), y: 350, units: bracketLayerUnits(2, 3.5, 8) },
-    { events: [final], fallback: semis.slice(0, 1), y: 438, units: [6], limit: 1, nodeSide: "final" },
+    { events: [final], fallback: semis.slice(0, 1), y: 474, units: [6.45], limit: 1, nodeSide: "final" },
   ]);
   renderBracketFinal(svg, nodes, final);
   renderBracketSide(svg, nodes, "bottom", [
@@ -1825,7 +1825,7 @@ function renderBracketBoard() {
     { events: round16.slice(4, 8), fallback: round32.slice(8, 16), y: 940, units: bracketLayerUnits(8, 0.5, 2) },
     { events: quarters.slice(2, 4), fallback: round16.slice(4, 8), y: 826, units: bracketLayerUnits(4, 1.5, 4) },
     { events: semis.slice(1, 2), fallback: quarters.slice(2, 4), y: 712, units: bracketLayerUnits(2, 3.5, 8) },
-    { events: [final], fallback: semis.slice(1, 2), y: 438, units: [9], limit: 1, competitorOffset: 1, nodeSide: "final" },
+    { events: [final], fallback: semis.slice(1, 2), y: 474, units: [8.55], limit: 1, competitorOffset: 1, nodeSide: "final" },
   ]);
 
   els.bracketBoard.replaceChildren(canvas);
@@ -1912,12 +1912,12 @@ function bracketWinners(events = []) {
 
 function renderBracketFinal(svg, nodes, finalEvent) {
   const competitors = finalEvent?.competitions?.[0]?.competitors || [];
-  addBracketScore(nodes, bracketScoreText(competitors, finalEvent), bracketX(7.5), 490);
+  addBracketScore(nodes, bracketScoreText(competitors, finalEvent), bracketX(7.5), 508);
 
   const finalBadge = document.createElement("div");
   finalBadge.className = "bracket-final-badge";
   finalBadge.textContent = t("final");
-  placeBracketElement(finalBadge, bracketX(7.5), 528);
+  placeBracketElement(finalBadge, bracketX(7.5), 520);
   nodes.append(finalBadge);
 }
 
@@ -1940,7 +1940,7 @@ function addBracketConnector(svg, leftX, rightX, midX, inY, outY, side, complete
 
 function addBracketFinalLine(svg, x1, y1, x2, y2) {
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", `M ${x1} ${y1} H ${x2}`);
+  path.setAttribute("d", `M ${x1} ${y1} L ${x2} ${y2}`);
   path.setAttribute("class", "bracket-path");
   svg.append(path);
 }
