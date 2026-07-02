@@ -10,7 +10,7 @@ const REFRESH_MS = 60_000;
 const LANG_KEY = "worldCupLiveLanguage";
 const PLAYER_NAME_CACHE_KEY = "worldCupPlayerNameCache";
 const FINAL_DATE_LOCAL = "2026-07-20";
-const APP_VERSION = "20260702-3";
+const APP_VERSION = "20260702-4";
 
 const copy = {
   zh: {
@@ -73,8 +73,6 @@ const copy = {
     points: "分",
     qualified: "晋级区",
     knockoutTitle: "淘汰赛对阵",
-    bracketButton: "对阵图",
-    bracketTitle: "对阵图",
     pending: "待定",
     pendingMatchup: "待定 - 待定",
     groupLabel: "小组",
@@ -161,8 +159,6 @@ const copy = {
     points: "点",
     qualified: "突破圏",
     knockoutTitle: "決勝トーナメント",
-    bracketButton: "トーナメント表",
-    bracketTitle: "トーナメント表",
     pending: "未定",
     pendingMatchup: "未定 - 未定",
     groupLabel: "グループ",
@@ -248,9 +244,7 @@ const copy = {
     goalDiff: "GD",
     points: "Pts",
     qualified: "Qualified",
-    knockoutTitle: "Knockout Bracket",
-    bracketButton: "Bracket",
-    bracketTitle: "Bracket",
+    knockoutTitle: "Knockout Fixtures",
     pending: "TBD",
     pendingMatchup: "TBD - TBD",
     groupLabel: "Group",
@@ -633,10 +627,6 @@ const els = {
   namePrompt: document.querySelector("#namePrompt"),
   namePromptText: document.querySelector("#namePromptText"),
   namePromptClose: document.querySelector("#namePromptClose"),
-  bracketPrompt: document.querySelector("#bracketPrompt"),
-  bracketPromptTitle: document.querySelector("#bracketPromptTitle"),
-  bracketPromptClose: document.querySelector("#bracketPromptClose"),
-  bracketBoard: document.querySelector("#bracketBoard"),
   languageMenu: document.querySelector(".language-menu"),
   languageButtons: document.querySelectorAll("[data-lang]"),
   visitorBadge: document.querySelector("#visitorBadge"),
@@ -907,16 +897,16 @@ function isResolvedTeam(team = {}) {
   return true;
 }
 
-function createKnockoutTeamChip(team, compact = false) {
+function createKnockoutTeamChip(team) {
   const chip = document.createElement("span");
-  chip.className = compact ? "bracket-team compact" : "advancement-team";
+  chip.className = "advancement-team";
 
   if (!isResolvedTeam(team)) {
     const icon = document.createElement("span");
     icon.className = "pending-dot";
     icon.textContent = "?";
     const label = document.createElement("span");
-    label.textContent = compact ? t("pending") : localizedTeamFromText(team?.displayName || team?.name || t("pending"));
+    label.textContent = localizedTeamFromText(team?.displayName || team?.name || t("pending"));
     if (!team?.abbreviation || !teamNames[team.abbreviation]) label.textContent = t("pending");
     chip.append(icon, label);
     return chip;
@@ -931,6 +921,7 @@ function createKnockoutTeamChip(team, compact = false) {
 
 function createKnockoutTeamsNode(event) {
   const teams = event.competitions?.[0]?.competitors || [];
+  const completed = isEventCompleted(event);
   const node = document.createElement("span");
   node.className = "advancement-teams";
   if (!teams.length) {
@@ -938,12 +929,56 @@ function createKnockoutTeamsNode(event) {
     return node;
   }
   node.append(createKnockoutTeamChip(teams[0]?.team || {}));
+  if (completed) node.append(createAdvancementScore(teams[0], teams));
   const dash = document.createElement("span");
   dash.className = "match-dash";
-  dash.textContent = "-";
+  dash.textContent = completed ? "：" : "-";
   node.append(dash);
+  if (completed) node.append(createAdvancementScore(teams[1], teams));
   node.append(createKnockoutTeamChip(teams[1]?.team || {}));
   return node;
+}
+
+function isEventCompleted(event) {
+  const status = event?.competitions?.[0]?.status || event?.status || {};
+  return Boolean(status.type?.completed);
+}
+
+function createAdvancementScore(competitor = {}, competitors = []) {
+  const score = document.createElement("span");
+  score.className = "advancement-score";
+  if (competitor.winner) score.classList.add("winner");
+  const base = competitor.score ?? "0";
+  const penalty = competitorShootoutScore(competitor, competitors);
+  score.textContent = penalty === "" ? `${base}` : `${base}（${penalty}）`;
+  return score;
+}
+
+function competitorShootoutScore(competitor = {}, competitors = []) {
+  const candidates = [
+    competitor.shootoutScore,
+    competitor.penaltyScore,
+    competitor.penalties,
+    competitor.penaltyShootoutScore,
+    competitor.shootout?.score,
+  ];
+  const stat = (competitor.statistics || []).find((entry) => /penalt|shootout/i.test(entry.name || entry.displayName || ""));
+  candidates.push(stat?.value, stat?.displayValue);
+  const value = candidates.find((candidate) => candidate !== undefined && candidate !== null && candidate !== "");
+  if (value !== undefined) return String(value);
+
+  const tiedScore = competitors.length === 2
+    && competitors[0]?.score !== undefined
+    && String(competitors[0]?.score) === String(competitors[1]?.score);
+  if (!tiedScore) return "";
+  const note = [
+    competitor.curatedRank?.current,
+    competitor.record,
+    competitor.summary,
+    competitor.displayRecord,
+  ].join(" ");
+  const match = note.match(/\((\d+)\)/);
+  return match?.[1] || "";
 }
 
 function setCounts(matches) {
@@ -1053,7 +1088,6 @@ function renderStaticText() {
   });
   els.date.max = FINAL_DATE_LOCAL;
   els.finalBadge.textContent = t("finalBadge");
-  if (els.bracketPromptTitle) els.bracketPromptTitle.textContent = t("bracketTitle");
   renderDateDisplay();
 
   renderSyncStatus();
@@ -1231,10 +1265,6 @@ function captureUiState() {
     openKeys: [...detailsOpenState],
     scorerScrolls: [...document.querySelectorAll(".scorers-scroll")].map((node) => node.scrollTop),
     advancementScroll: document.querySelector(".advancement-list")?.scrollTop || 0,
-    bracketScroll: {
-      top: document.querySelector(".bracket-board")?.scrollTop || 0,
-      left: document.querySelector(".bracket-board")?.scrollLeft || 0,
-    },
   };
 }
 
@@ -1251,11 +1281,6 @@ function restoreUiState(state) {
   });
   const advancementList = document.querySelector(".advancement-list");
   if (advancementList) advancementList.scrollTop = state.advancementScroll || 0;
-  const bracketBoard = document.querySelector(".bracket-board");
-  if (bracketBoard) {
-    bracketBoard.scrollTop = state.bracketScroll?.top || 0;
-    bracketBoard.scrollLeft = state.bracketScroll?.left || 0;
-  }
 }
 
 function rememberDetailsState() {
@@ -1751,12 +1776,7 @@ function renderAdvancement() {
   header.className = "advancement-card__header";
   const knockoutHeading = document.createElement("h3");
   knockoutHeading.textContent = t("knockoutTitle");
-  const bracketButton = document.createElement("button");
-  bracketButton.className = "bracket-button";
-  bracketButton.type = "button";
-  bracketButton.textContent = t("bracketButton");
-  bracketButton.addEventListener("click", showBracketPrompt);
-  header.append(knockoutHeading, bracketButton);
+  header.append(knockoutHeading);
   const knockoutList = document.createElement("div");
   knockoutList.className = "advancement-list";
 
@@ -1770,6 +1790,7 @@ function renderAdvancement() {
   events.forEach((event) => {
     const item = document.createElement("div");
     item.className = "advancement-item";
+    if (isEventCompleted(event)) item.classList.add("completed");
     const label = document.createElement("strong");
     const round = knockoutRoundLabelForEvent(event);
     label.textContent = round ? `${formatScheduleTime(event.date)} · ${round}` : formatScheduleTime(event.date);
@@ -1781,224 +1802,6 @@ function renderAdvancement() {
   els.advancementGrid.replaceChildren(knockout);
   const nextList = document.querySelector(".advancement-list");
   if (nextList) nextList.scrollTop = previousScrollTop;
-  if (!els.bracketPrompt.hidden) renderBracketBoard();
-}
-
-function showBracketPrompt() {
-  renderBracketBoard();
-  els.bracketPromptTitle.textContent = t("bracketTitle");
-  els.bracketPrompt.hidden = false;
-}
-
-function hideBracketPrompt() {
-  els.bracketPrompt.hidden = true;
-}
-
-function renderBracketBoard() {
-  if (!els.bracketBoard) return;
-  const events = knockoutEvents();
-  const bySlug = (slug) => events
-    .filter((event) => event.season?.slug === slug)
-    .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
-  const round32 = bySlug("round-of-32");
-  const round16 = bySlug("round-of-16");
-  const quarters = bySlug("quarterfinals");
-  const semis = bySlug("semifinals");
-  const final = bySlug("final")[0];
-  const canvas = document.createElement("div");
-  canvas.className = "bracket-canvas";
-  const svg = createBracketSvg();
-  const nodes = document.createElement("div");
-  nodes.className = "bracket-nodes";
-  canvas.append(svg, nodes);
-
-  renderBracketSide(svg, nodes, "top", [
-    { events: round32.slice(0, 8), y: 18, units: bracketLayerUnits(16, 0, 1) },
-    { events: round16.slice(0, 4), fallback: round32.slice(0, 8), y: 122, units: bracketLayerUnits(8, 0.5, 2) },
-    { events: quarters.slice(0, 2), fallback: round16.slice(0, 4), y: 236, units: bracketLayerUnits(4, 1.5, 4) },
-    { events: semis.slice(0, 1), fallback: quarters.slice(0, 2), y: 350, units: bracketLayerUnits(2, 3.5, 8) },
-    { events: [final], fallback: semis.slice(0, 1), y: 474, units: [6.45], limit: 1, nodeSide: "final" },
-  ]);
-  renderBracketFinal(svg, nodes, final);
-  renderBracketSide(svg, nodes, "bottom", [
-    { events: round32.slice(8, 16), y: 1044, units: bracketLayerUnits(16, 0, 1) },
-    { events: round16.slice(4, 8), fallback: round32.slice(8, 16), y: 940, units: bracketLayerUnits(8, 0.5, 2) },
-    { events: quarters.slice(2, 4), fallback: round16.slice(4, 8), y: 826, units: bracketLayerUnits(4, 1.5, 4) },
-    { events: semis.slice(1, 2), fallback: quarters.slice(2, 4), y: 712, units: bracketLayerUnits(2, 3.5, 8) },
-    { events: [final], fallback: semis.slice(1, 2), y: 474, units: [8.55], limit: 1, competitorOffset: 1, nodeSide: "final" },
-  ]);
-
-  els.bracketBoard.replaceChildren(canvas);
-}
-
-function createBracketSvg() {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("class", "bracket-lines");
-  svg.setAttribute("viewBox", "0 0 1320 1100");
-  svg.setAttribute("aria-hidden", "true");
-  return svg;
-}
-
-function bracketLayerUnits(count, first, step) {
-  return Array.from({ length: count }, (_, index) => first + index * step);
-}
-
-function bracketX(unit) {
-  return 52 + unit * 81;
-}
-
-function renderBracketSide(svg, nodes, side, layers) {
-  const normalized = layers.map((layer, index) => ({
-    ...layer,
-    competitors: bracketLayerCompetitors(layer, index === 0 ? [] : layers[index - 1].events),
-  }));
-
-  normalized.forEach((layer) => {
-    layer.units.forEach((unit, index) => {
-      addBracketNode(nodes, layer.competitors[index], bracketX(unit), layer.y, layer.nodeSide || side, "entrant");
-    });
-  });
-
-  for (let index = 0; index < normalized.length - 1; index += 1) {
-    const from = normalized[index];
-    const to = normalized[index + 1];
-    to.units.forEach((unit, outputIndex) => {
-      const leftIndex = outputIndex * 2;
-      const rightIndex = leftIndex + 1;
-      const event = from.events[outputIndex] || null;
-      addBracketConnector(
-        svg,
-        bracketX(from.units[leftIndex]),
-        bracketX(from.units[rightIndex]),
-        bracketX(unit),
-        from.y,
-        to.y,
-        side,
-        Boolean((event?.competitions?.[0]?.status || event?.status || {}).type?.completed),
-      );
-      addBracketScore(
-        nodes,
-        bracketScoreText(event?.competitions?.[0]?.competitors || [], event),
-        (bracketX(from.units[leftIndex]) + bracketX(from.units[rightIndex])) / 2,
-        side === "top" ? from.y + 62 : from.y - 62,
-      );
-    });
-  }
-}
-
-function bracketLayerCompetitors(layer, previousEvents = []) {
-  const expected = layer.units.length;
-  const fromCurrent = flattenBracketCompetitors(layer.events, layer.limit, layer.competitorOffset || 0);
-  const fromFallback = bracketWinners(layer.fallback || previousEvents);
-  return Array.from({ length: expected }, (_, index) => {
-    const fallback = fromFallback[index];
-    if (fallback && isResolvedTeam(fallback.team)) return fallback;
-    const candidate = fromCurrent[index];
-    if (candidate && isResolvedTeam(candidate.team)) return candidate;
-    return null;
-  });
-}
-
-function flattenBracketCompetitors(events = [], limit = Infinity, offset = 0) {
-  return (events || [])
-    .filter(Boolean)
-    .flatMap((event) => (event.competitions?.[0]?.competitors || []).slice(offset))
-    .slice(0, limit);
-}
-
-function bracketWinners(events = []) {
-  return (events || []).map((event) => bracketWinner(event));
-}
-
-function renderBracketFinal(svg, nodes, finalEvent) {
-  const competitors = finalEvent?.competitions?.[0]?.competitors || [];
-  addBracketScore(nodes, bracketScoreText(competitors, finalEvent), bracketX(7.5), 508);
-
-  const finalBadge = document.createElement("div");
-  finalBadge.className = "bracket-final-badge";
-  finalBadge.textContent = t("final");
-  placeBracketElement(finalBadge, bracketX(7.5), 520);
-  nodes.append(finalBadge);
-}
-
-function bracketWinner(event = null) {
-  const competitors = event?.competitions?.[0]?.competitors || [];
-  const status = event?.competitions?.[0]?.status || event?.status || {};
-  if (!status.type?.completed) return null;
-  return competitors.find((competitor) => competitor.winner) || null;
-}
-
-function addBracketConnector(svg, leftX, rightX, midX, inY, outY, side, completed) {
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  const inputY = side === "top" ? inY + 54 : inY - 54;
-  const outputY = side === "top" ? outY - 4 : outY + 4;
-  const jointY = side === "top" ? outputY - 24 : outputY + 24;
-  path.setAttribute("d", `M ${leftX} ${inputY} V ${jointY} H ${midX} V ${outputY} M ${rightX} ${inputY} V ${jointY} H ${midX}`);
-  path.setAttribute("class", completed ? "bracket-path completed" : "bracket-path");
-  svg.append(path);
-}
-
-function addBracketFinalLine(svg, x1, y1, x2, y2) {
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", `M ${x1} ${y1} L ${x2} ${y2}`);
-  path.setAttribute("class", "bracket-path");
-  svg.append(path);
-}
-
-function addBracketScore(nodes, text, x, y) {
-  if (!text || text === "vs") return;
-  const score = document.createElement("strong");
-  score.className = "bracket-score";
-  score.textContent = text;
-  placeBracketElement(score, x, y);
-  nodes.append(score);
-}
-
-function addBracketNode(nodes, competitor, x, y, side, role) {
-  const node = createBracketTeamNode(competitor || {});
-  node.classList.add(`bracket-node--${role}`);
-  if (side === "bottom") node.classList.add("bracket-node--bottom");
-  placeBracketElement(node, x, y);
-  nodes.append(node);
-}
-
-function placeBracketElement(element, x, y) {
-  element.style.left = `${x}px`;
-  element.style.top = `${y}px`;
-}
-
-function createBracketTeamNode(competitor = {}) {
-  const team = competitor.team || {};
-  const node = document.createElement("div");
-  node.className = "bracket-node";
-  if (competitor.winner) node.classList.add("winner");
-
-  if (isResolvedTeam(team)) {
-    appendTeamFlag(node, team);
-    const name = document.createElement("span");
-    name.textContent = localizedTeamName(team);
-    node.append(name);
-  } else {
-    const icon = document.createElement("span");
-    icon.className = "pending-dot";
-    icon.textContent = "?";
-    const name = document.createElement("span");
-    name.textContent = t("pending");
-    node.append(icon, name);
-  }
-
-  return node;
-}
-
-function bracketScoreText(competitors = [], event = null) {
-  const status = event?.competitions?.[0]?.status || event?.status || {};
-  const state = String(status.type?.state || "").toLowerCase();
-  const description = String(status.type?.description || status.type?.name || "").toLowerCase();
-  if (!event || state === "pre" || /scheduled|pre-game|not started/.test(description)) return "";
-  const home = competitors[0]?.score;
-  const away = competitors[1]?.score;
-  if (home !== undefined && home !== "" && away !== undefined && away !== "") return `${home}:${away}`;
-  return "vs";
 }
 
 async function loadMatches() {
@@ -2169,15 +1972,11 @@ els.today.addEventListener("click", () => {
 });
 els.appPromptClose.addEventListener("click", hideAppPrompt);
 els.namePromptClose.addEventListener("click", hideNamePrompt);
-els.bracketPromptClose.addEventListener("click", hideBracketPrompt);
 els.appPrompt.addEventListener("click", (event) => {
   if (event.target === els.appPrompt) hideAppPrompt();
 });
 els.namePrompt.addEventListener("click", (event) => {
   if (event.target === els.namePrompt) hideNamePrompt();
-});
-els.bracketPrompt.addEventListener("click", (event) => {
-  if (event.target === els.bracketPrompt) hideBracketPrompt();
 });
 document.addEventListener("pointerdown", (event) => {
   if (!els.languageMenu.open) return;
@@ -2187,7 +1986,6 @@ document.addEventListener("pointerdown", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !els.appPrompt.hidden) hideAppPrompt();
   if (event.key === "Escape" && !els.namePrompt.hidden) hideNamePrompt();
-  if (event.key === "Escape" && !els.bracketPrompt.hidden) hideBracketPrompt();
   if (event.key === "Escape" && els.languageMenu.open) els.languageMenu.open = false;
 });
 els.languageButtons.forEach((button) => {
